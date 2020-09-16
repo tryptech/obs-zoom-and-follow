@@ -7,25 +7,27 @@ Have you ever needed to zoom in on your screen to show some fine detail work, or
 
 Dependencies
 ------------
-- [mouse](https://github.com/boppreh/mouse) by [BoppreH](https://github.com/boppreh)
+- [pynput](https://github.com/moses-palmer/pynput) by [moses-palmer](https://github.com/moses-palmer)
 - [screeninfo](https://github.com/rr-/screeninfo) by [rr-](https://github.com/rr-)
 
 Install
 -------
 - Install Python 3 (3.6 for Windows, that's what OBS works with)
-- Install mouse *python -m pip install mouse*
+- Install pynput *python -m pip install pynput*
 - Install screeninfo *python -m pip install screeninfo*
-- Add zoom_and_follow_mouse.py as an OBS script
+- Add `zoom_and_follow_mouse.py` as an OBS script
 
 How to Use
 ----------
 - Setup a hotkey for "Enable/Disable Mouse Zoom and Follow
 - Select a source to zoom into as part of the script settings
 - Configure the settings to your liking
-- Add a Crop/Pad filter named "ZoomCrop" to the source with "Relative" unchecked
 - You're done!
+
+Set up zooms for different sources
+---
+- Copy paste `zoom_and_follow_mouse.py` file , add it as an OBS script.
 
 To Do
 -----
 - Move hotkey to script settings (?)
-- Set up zooms for different sources (?)
