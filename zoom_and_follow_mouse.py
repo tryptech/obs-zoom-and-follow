@@ -18,8 +18,9 @@ class CursorWindow:
     zo_timer = 0
     lock = True
     track = True
-    d_w = get_monitors()[0].width
-    d_h = get_monitors()[0].height
+    monitor_idx = 0
+    d_w = get_monitors()[monitor_idx].width
+    d_h = get_monitors()[monitor_idx].height
     z_x = 0
     z_y = 0
     refresh_rate = 16
@@ -31,11 +32,17 @@ class CursorWindow:
     smooth = 1.0
     zoom_d = 300
 
-    def setW(self, p):
-        self.d_w = p
+    def update_monitor_size(self):
+        monitors = get_monitors()
+        if self.monitor_idx < len(monitors):
+            monitor = get_monitors()[self.monitor_idx]
+            self.d_w = monitor.width
+            self.d_h = monitor.height
 
-    def setH(self, p):
-        self.d_h = p
+    def switch_to_monitor(self, monitor_name):
+        for i, monitor in enumerate(get_monitors()):
+            if monitor_name == monitor.name:
+                self.monitor_idx = i
 
     def resetZI(self):
         self.zi_timer = 0
@@ -212,6 +219,7 @@ def script_defaults(settings):
     obs.obs_data_set_default_int(settings, "Speed", zoom.max_speed)
     obs.obs_data_set_default_double(settings, "Smooth", zoom.smooth)
     obs.obs_data_set_default_int(settings, "Zoom", int(zoom.zoom_d))
+    obs.obs_data_set_default_string(settings, "Monitor", get_monitors()[0].name)
 
 
 def script_update(settings):
@@ -223,6 +231,7 @@ def script_update(settings):
     zoom.max_speed = obs.obs_data_get_int(settings, "Speed")
     zoom.smooth = obs.obs_data_get_double(settings, "Smooth")
     zoom.zoom_d = obs.obs_data_get_double(settings, "Zoom")
+    zoom.switch_to_monitor(obs.obs_data_get_string(settings, "Monitor"))
 
 
 def script_properties():
@@ -242,6 +251,16 @@ def script_properties():
             name = obs.obs_source_get_name(source)
             obs.obs_property_list_add_string(p, name, name)
         obs.source_list_release(sources)
+
+    monitors_prop_list = obs.obs_properties_add_list(
+        props,
+        "Monitor",
+        "Select monitor to use base for zooming",
+        obs.OBS_COMBO_TYPE_EDITABLE,
+        obs.OBS_COMBO_FORMAT_STRING,
+    )
+    for monitor in get_monitors():
+        obs.obs_property_list_add_string(monitors_prop_list, monitor.name, monitor.name)
     obs.obs_properties_add_int(props, "Width", "Zoom Window Width", 320, 3840, 1)
     obs.obs_properties_add_int(props, "Height", "Zoom Window Height", 240, 3840, 1)
     obs.obs_properties_add_float_slider(props, "Border", "Active Border", 0, 0.33, 0.01)
@@ -275,9 +294,7 @@ def script_save(settings):
 def toggle_zoom_follow(pressed):
     if pressed:
         if zoom.source_name != "" and zoom.flag:
-            monitor = get_monitors()[0]
-            zoom.setW(monitor.width)
-            zoom.setH(monitor.height)
+            zoom.update_monitor_size()
             obs.timer_add(zoom.tick, zoom.refresh_rate)
             zoom.lock = True
             zoom.flag = False
