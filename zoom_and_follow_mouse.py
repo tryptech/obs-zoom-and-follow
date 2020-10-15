@@ -9,6 +9,9 @@ hotkey_id_tog = None
 HOTKEY_NAME_TOG = "zoom_follow.toggle"
 HOTKEY_DESC_TOG = "Enable/Disable Mouse Zoom and Follow"
 USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
+lock_zoom_id_tog = None
+LOCK_ZOOM_NAME_TOG = "zoom_lock.toggle"
+LOCK_ZOOM_DESC_TOG = "Enable/Disable Lock Zoom"
 
 # -------------------------------------------------------------------
 
@@ -194,11 +197,12 @@ class CursorWindow:
         self.set_crop(0)
 
     def tracking(self):
-        if self.lock:
-            self.follow(get_position())
-            self.set_crop(1)
-        else:
-            self.reset_crop()
+        if self.track:
+            if self.lock:
+                self.follow(get_position())
+                self.set_crop(1)
+            else:
+                self.reset_crop()
 
     def tick(self):
         # Containing function that is run every frame
@@ -296,15 +300,27 @@ def script_load(settings):
     obs.obs_hotkey_load(hotkey_id_tog, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
 
+    global lock_zoom_id_tog
+    lock_zoom_id_tog = obs.obs_hotkey_register_frontend(
+        LOCK_ZOOM_NAME_TOG, LOCK_ZOOM_DESC_TOG, toggle_zoom_lock
+    )
+    lock_zoom_save_array = obs.obs_data_get_array(settings, LOCK_ZOOM_NAME_TOG)
+    obs.obs_hotkey_load(lock_zoom_id_tog, lock_zoom_save_array)
+    obs.obs_data_array_release(lock_zoom_save_array)
+
 
 def script_unload():
     obs.obs_hotkey_unregister(toggle_zoom_follow)
+    obs.obs_hotkey_unregister(toggle_zoom_lock)
 
 
 def script_save(settings):
     hotkey_save_array = obs.obs_hotkey_save(hotkey_id_tog)
     obs.obs_data_set_array(settings, HOTKEY_NAME_TOG, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
+    lock_zoom_save_array = obs.obs_hotkey_save(lock_zoom_id_tog)
+    obs.obs_data_set_array(settings, LOCK_ZOOM_NAME_TOG, lock_zoom_save_array)
+    obs.obs_data_array_release(lock_zoom_save_array)
 
 
 def toggle_zoom_follow(pressed):
@@ -317,3 +333,9 @@ def toggle_zoom_follow(pressed):
         elif not zoom.flag:
             zoom.flag = True
             zoom.lock = False
+
+
+def toggle_zoom_lock(pressed):
+    if pressed:
+        print("Toggling zoom track")
+        zoom.track = not zoom.track
