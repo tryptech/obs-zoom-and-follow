@@ -8,6 +8,7 @@ get_position = lambda: c.position
 hotkey_id_tog = None
 HOTKEY_NAME_TOG = "zoom_follow.toggle"
 HOTKEY_DESC_TOG = "Enable/Disable Mouse Zoom and Follow"
+USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
 
 # -------------------------------------------------------------------
 
@@ -21,6 +22,8 @@ class CursorWindow:
     monitor_idx = 0
     d_w = get_monitors()[monitor_idx].width
     d_h = get_monitors()[monitor_idx].height
+    d_w_override = get_monitors()[monitor_idx].width
+    d_h_override = get_monitors()[monitor_idx].height
     z_x = 0
     z_y = 0
     refresh_rate = 16
@@ -38,11 +41,16 @@ class CursorWindow:
             monitor = get_monitors()[self.monitor_idx]
             self.d_w = monitor.width
             self.d_h = monitor.height
+        else:
+            self.d_w = self.d_w_override
+            self.d_h = self.d_h_override
 
     def switch_to_monitor(self, monitor_name):
         for i, monitor in enumerate(get_monitors()):
             if monitor_name == monitor.name:
                 self.monitor_idx = i
+                return
+        self.monitor_idx = len(get_monitors()) + 1000
 
     def resetZI(self):
         self.zi_timer = 0
@@ -220,6 +228,8 @@ def script_defaults(settings):
     obs.obs_data_set_default_double(settings, "Smooth", zoom.smooth)
     obs.obs_data_set_default_int(settings, "Zoom", int(zoom.zoom_d))
     obs.obs_data_set_default_string(settings, "Monitor", get_monitors()[0].name)
+    obs.obs_data_set_default_int(settings, "Manual Monitor Width", get_monitors()[0].width)
+    obs.obs_data_set_default_int(settings, "Manual Monitor Height", get_monitors()[0].height)
 
 
 def script_update(settings):
@@ -232,6 +242,8 @@ def script_update(settings):
     zoom.smooth = obs.obs_data_get_double(settings, "Smooth")
     zoom.zoom_d = obs.obs_data_get_double(settings, "Zoom")
     zoom.switch_to_monitor(obs.obs_data_get_string(settings, "Monitor"))
+    zoom.d_w_override = obs.obs_data_get_int(settings, "Manual Monitor Width")
+    zoom.d_h_override = obs.obs_data_get_int(settings, "Manual Monitor Height")
 
 
 def script_properties():
@@ -261,6 +273,10 @@ def script_properties():
     )
     for monitor in get_monitors():
         obs.obs_property_list_add_string(monitors_prop_list, monitor.name, monitor.name)
+    obs.obs_property_list_add_string(monitors_prop_list, USE_MANUAL_MONITOR_SIZE, USE_MANUAL_MONITOR_SIZE)
+    obs.obs_properties_add_int(props, "Manual Monitor Width", "Manual Monitor Width", 320, 3840, 1)
+    obs.obs_properties_add_int(props, "Manual Monitor Height", "Manual Monitor Height", 240, 3840, 1)
+
     obs.obs_properties_add_int(props, "Width", "Zoom Window Width", 320, 3840, 1)
     obs.obs_properties_add_int(props, "Height", "Zoom Window Height", 240, 3840, 1)
     obs.obs_properties_add_float_slider(props, "Border", "Active Border", 0, 0.33, 0.01)
