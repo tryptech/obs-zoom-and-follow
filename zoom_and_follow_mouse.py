@@ -6,8 +6,11 @@ from screeninfo import get_monitors  # python -m pip install screeninfo
 c = Controller()
 get_position = lambda: c.position
 zoom_id_tog = None
-ZOOM_NAME_TOG = "zoom_follow.toggle"
-ZOOM_DESC_TOG = "Enable/Disable Mouse Zoom and Follow"
+follow_id_tog = None
+ZOOM_NAME_TOG = "zoom.toggle"
+FOLLOW_NAME_TOG = "follow.toggle"
+ZOOM_DESC_TOG = "Enable/Disable Mouse Zoom"
+FOLLOW_DESC_TOG = "Enable/Disable Mouse Follow"
 USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
 
 # -------------------------------------------------------------------
@@ -290,7 +293,7 @@ def script_properties():
 def script_load(settings):
     global zoom_id_tog
     zoom_id_tog = obs.obs_hotkey_register_frontend(
-        ZOOM_NAME_TOG, ZOOM_DESC_TOG, toggle_zoom_follow
+        ZOOM_NAME_TOG, ZOOM_DESC_TOG, toggle_zoom
     )
     hotkey_save_array = obs.obs_data_get_array(settings, ZOOM_NAME_TOG)
     obs.obs_hotkey_load(zoom_id_tog, hotkey_save_array)
@@ -298,7 +301,7 @@ def script_load(settings):
 
 
 def script_unload():
-    obs.obs_hotkey_unregister(toggle_zoom_follow)
+    obs.obs_hotkey_unregister(toggle_zoom)
 
 
 def script_save(settings):
@@ -307,7 +310,7 @@ def script_save(settings):
     obs.obs_data_array_release(hotkey_save_array)
 
 
-def toggle_zoom_follow(pressed):
+def toggle_zoom(pressed):
     if pressed:
         if zoom.source_name != "" and zoom.flag:
             zoom.update_monitor_size()
