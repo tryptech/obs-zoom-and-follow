@@ -5,9 +5,9 @@ from screeninfo import get_monitors  # python -m pip install screeninfo
 
 c = Controller()
 get_position = lambda: c.position
-hotkey_id_tog = None
-HOTKEY_NAME_TOG = "zoom_follow.toggle"
-HOTKEY_DESC_TOG = "Enable/Disable Mouse Zoom and Follow"
+zoom_id_tog = None
+ZOOM_NAME_TOG = "zoom_follow.toggle"
+ZOOM_DESC_TOG = "Enable/Disable Mouse Zoom and Follow"
 USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
 
 # -------------------------------------------------------------------
@@ -288,12 +288,12 @@ def script_properties():
 
 
 def script_load(settings):
-    global hotkey_id_tog
-    hotkey_id_tog = obs.obs_hotkey_register_frontend(
-        HOTKEY_NAME_TOG, HOTKEY_DESC_TOG, toggle_zoom_follow
+    global zoom_id_tog
+    zoom_id_tog = obs.obs_hotkey_register_frontend(
+        ZOOM_NAME_TOG, ZOOM_DESC_TOG, toggle_zoom_follow
     )
-    hotkey_save_array = obs.obs_data_get_array(settings, HOTKEY_NAME_TOG)
-    obs.obs_hotkey_load(hotkey_id_tog, hotkey_save_array)
+    hotkey_save_array = obs.obs_data_get_array(settings, ZOOM_NAME_TOG)
+    obs.obs_hotkey_load(zoom_id_tog, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
 
 
@@ -302,8 +302,8 @@ def script_unload():
 
 
 def script_save(settings):
-    hotkey_save_array = obs.obs_hotkey_save(hotkey_id_tog)
-    obs.obs_data_set_array(settings, HOTKEY_NAME_TOG, hotkey_save_array)
+    hotkey_save_array = obs.obs_hotkey_save(zoom_id_tog)
+    obs.obs_data_set_array(settings, ZOOM_NAME_TOG, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
 
 
