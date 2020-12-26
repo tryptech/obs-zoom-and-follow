@@ -19,14 +19,15 @@ Install
 
 How to Use
 ----------
-- Setup a hotkey for "Enable/Disable Mouse Zoom and Follow
+- Setup a hotkey for "Enable/Disable Mouse Zoom"
+- Setup a hotkey for "Enable/Disable Mouse Follow"
 - Select a source to zoom into as part of the script settings
 - Configure the settings to your liking
 - You're done!
 
 Set up zooms for different sources
 ---
-- Copy paste `zoom_and_follow_mouse.py` file , add it as an OBS script.
+- Copy paste `zoom_and_follow_mouse.py` file , add it as an OBS script, and repeat **How to Use**.
 
 To Do
 -----
