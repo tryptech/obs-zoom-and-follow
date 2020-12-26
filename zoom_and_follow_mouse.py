@@ -198,7 +198,8 @@ class CursorWindow:
 
     def tracking(self):
         if self.lock:
-            self.follow(get_position())
+            if self.track:
+                self.follow(get_position())
             self.set_crop(1)
         else:
             self.reset_crop()
@@ -299,14 +300,29 @@ def script_load(settings):
     obs.obs_hotkey_load(zoom_id_tog, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
 
+    global follow_id_tog
+    follow_id_tog = obs.obs_hotkey_register_frontend(
+        FOLLOW_NAME_TOG, FOLLOW_DESC_TOG, toggle_follow
+    )
+    hotkey_save_array = obs.obs_data_get_array(settings, FOLLOW_NAME_TOG)
+    obs.obs_hotkey_load(follow_id_tog, hotkey_save_array)
+    obs.obs_data_array_release(hotkey_save_array)
+
+
 
 def script_unload():
     obs.obs_hotkey_unregister(toggle_zoom)
+    obs.obs_hotkey_unregister(toggle_follow)
+
 
 
 def script_save(settings):
     hotkey_save_array = obs.obs_hotkey_save(zoom_id_tog)
     obs.obs_data_set_array(settings, ZOOM_NAME_TOG, hotkey_save_array)
+    obs.obs_data_array_release(hotkey_save_array)
+
+    hotkey_save_array = obs.obs_hotkey_save(follow_id_tog)
+    obs.obs_data_set_array(settings, FOLLOW_NAME_TOG, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
 
 
@@ -320,3 +336,10 @@ def toggle_zoom(pressed):
         elif not zoom.flag:
             zoom.flag = True
             zoom.lock = False
+
+def toggle_follow(pressed):
+    if pressed:
+        if zoom.track:
+            zoom.track = False
+        elif not zoom.track:
+            zoom.track = True
