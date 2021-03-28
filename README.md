@@ -13,8 +13,14 @@ Dependencies
 Install
 -------
 - Install Python 3 (3.6 for Windows, that's what OBS works with)
-- Install pynput *python -m pip install pynput*
-- Install screeninfo *python -m pip install screeninfo*
+- Install pynput 
+  ```console 
+  $ python -m pip install pynput
+  ```
+- Install screeninfo
+  ```console 
+  $ python -m pip install screeninfo
+  ```
 - Add `zoom_and_follow_mouse.py` as an OBS script
 
 How to Use
