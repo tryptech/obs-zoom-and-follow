@@ -92,38 +92,47 @@ class CursorWindow:
 
         move = False
 
-        # Set x and y zoom offset
+        # Get mouse location
         x_o = mousePos[0]
         y_o = mousePos[1]
 
+        # Set x and y zoom offset
+        offset_x = 0
+        offset_y = 0
+
         if x_o < zoom_l:
-            val = self.check_offset(zoom_l, x_o, smoothFactor)
-            self.z_x -= val if val < self.max_speed else self.max_speed
+            offset_x = self.check_offset(x_o, zoom_l, smoothFactor)
             move = True
-        if x_o > zoom_r:
-            val = self.check_offset(x_o, zoom_r, smoothFactor)
-            self.z_x += val if val < self.max_speed else self.max_speed
-            move = True
-        if y_o < zoom_u:
-            val1 = self.check_offset(zoom_u, y_o, smoothFactor)
-            val2 = self.check_offset(zoom_u, x_o, smoothFactor)
-            self.z_y -= val1 if val2 < self.max_speed else self.max_speed
-            move = True
-        if y_o > zoom_d:
-            val = self.check_offset(y_o, zoom_d, smoothFactor)
-            self.z_y += val if val < self.max_speed else self.max_speed
+        elif x_o > zoom_r:
+            offset_x = self.check_offset(x_o, zoom_r, smoothFactor)
             move = True
 
+        if y_o < zoom_u:
+            offset_y = self.check_offset(y_o, zoom_u, smoothFactor)
+            move = True
+        elif y_o > zoom_d:
+            offset_y = self.check_offset(y_o, zoom_d, smoothFactor)
+            move = True
+
+        # Max speed clamp
+        if abs(offset_x) > self.max_speed:
+            offset_x = int(offset_x * self.max_speed / abs(offset_x))
+        if abs(offset_y) > self.max_speed:
+            offset_y = int(offset_y * self.max_speed / abs(offset_y))
+
+        self.z_x += offset_x
+        self.z_y += offset_y
         self.check_pos()
+
         return move
 
     def check_pos(self):
         # Checks if zoom window exceeds window dimensions and clamps it if true
-        if self.z_x <= 0:
+        if self.z_x < 0:
             self.z_x = 0
         elif self.z_x > self.d_w - self.zoom_w:
             self.z_x = self.d_w - self.zoom_w
-        if self.z_y <= 0:
+        if self.z_y < 0:
             self.z_y = 0
         elif self.z_y > self.d_h - self.zoom_h:
             self.z_y = self.d_h - self.zoom_h
