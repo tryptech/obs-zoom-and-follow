@@ -13,8 +13,14 @@ Dependencies
 Install
 -------
 - Install Python 3 (3.6 for Windows, that's what OBS works with)
-- Install pynput *python -m pip install pynput*
-- Install screeninfo *python -m pip install screeninfo*
+- Install pynput 
+  ```console 
+  $ python -m pip install pynput
+  ```
+- Install screeninfo
+  ```console 
+  $ python -m pip install screeninfo
+  ```
 - Add `zoom_and_follow_mouse.py` as an OBS script
 
 How to Use
@@ -31,4 +37,5 @@ Set up zooms for different sources
 
 To Do
 -----
+- Toggle to ignore deadzone in center / Always follow mouse / Always try to keep mouse in the center of the screen.
 - Move hotkey to script settings (?)
