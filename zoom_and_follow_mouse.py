@@ -50,7 +50,6 @@ class CursorWindow:
             self.d_h = monitor.height
             self.m_x = monitor.x
             self.m_y = monitor.y
-            print(monitor)
         else:
             self.d_w = self.d_w_override
             self.d_h = self.d_h_override
@@ -114,16 +113,14 @@ class CursorWindow:
             self.z_x += val if val < self.max_speed else self.max_speed
             move = True
         if y_o < zoom_u:
-            val1 = self.check_offset(zoom_u, y_o, smoothFactor)
-            val2 = self.check_offset(zoom_u, x_o, smoothFactor)
-            self.z_y -= val1 if val2 < self.max_speed else self.max_speed
+            val = self.check_offset(zoom_u, y_o, smoothFactor)
+            self.z_y -= val if val < self.max_speed else self.max_speed
             move = True
         if y_o > zoom_d:
             val = self.check_offset(y_o, zoom_d, smoothFactor)
             self.z_y += val if val < self.max_speed else self.max_speed
             move = True
 
-        print(mousePos)
         self.check_pos()
         return move
 
