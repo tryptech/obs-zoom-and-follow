@@ -25,8 +25,12 @@ class CursorWindow:
     monitor_idx = 0
     d_w = get_monitors()[monitor_idx].width
     d_h = get_monitors()[monitor_idx].height
+    m_x = get_monitors()[monitor_idx].x
+    m_y = get_monitors()[monitor_idx].y
     d_w_override = get_monitors()[monitor_idx].width
     d_h_override = get_monitors()[monitor_idx].height
+    m_x_override = get_monitors()[monitor_idx].x
+    m_y_override = get_monitors()[monitor_idx].y
     z_x = 0
     z_y = 0
     refresh_rate = 16
@@ -44,9 +48,14 @@ class CursorWindow:
             monitor = get_monitors()[self.monitor_idx]
             self.d_w = monitor.width
             self.d_h = monitor.height
+            self.m_x = monitor.x
+            self.m_y = monitor.y
+            print(monitor)
         else:
             self.d_w = self.d_w_override
             self.d_h = self.d_h_override
+            self.m_x = self.m_x_override
+            self.m_y = self.m_y_override
 
     def switch_to_monitor(self, monitor_name):
         for i, monitor in enumerate(get_monitors()):
@@ -93,8 +102,8 @@ class CursorWindow:
         move = False
 
         # Set x and y zoom offset
-        x_o = mousePos[0]
-        y_o = mousePos[1]
+        x_o = mousePos[0] - self.m_x
+        y_o = mousePos[1] - self.m_y
 
         if x_o < zoom_l:
             val = self.check_offset(zoom_l, x_o, smoothFactor)
@@ -114,6 +123,7 @@ class CursorWindow:
             self.z_y += val if val < self.max_speed else self.max_speed
             move = True
 
+        print(mousePos)
         self.check_pos()
         return move
 
@@ -234,6 +244,8 @@ def script_defaults(settings):
     obs.obs_data_set_default_string(settings, "Monitor", get_monitors()[0].name)
     obs.obs_data_set_default_int(settings, "Manual Monitor Width", get_monitors()[0].width)
     obs.obs_data_set_default_int(settings, "Manual Monitor Height", get_monitors()[0].height)
+    obs.obs_data_set_default_int(settings, "Manual Monitor X Offset", get_monitors()[0].x)
+    obs.obs_data_set_default_int(settings, "Manual Monitor Y Offset", get_monitors()[0].y)
 
 
 def script_update(settings):
@@ -248,6 +260,8 @@ def script_update(settings):
     zoom.switch_to_monitor(obs.obs_data_get_string(settings, "Monitor"))
     zoom.d_w_override = obs.obs_data_get_int(settings, "Manual Monitor Width")
     zoom.d_h_override = obs.obs_data_get_int(settings, "Manual Monitor Height")
+    zoom.m_x_override = obs.obs_data_get_int(settings, "Manual Monitor X Offset")
+    zoom.m_y_override = obs.obs_data_get_int(settings, "Manual Monitor Y Offset")
 
 
 def script_properties():
@@ -280,6 +294,8 @@ def script_properties():
     obs.obs_property_list_add_string(monitors_prop_list, USE_MANUAL_MONITOR_SIZE, USE_MANUAL_MONITOR_SIZE)
     obs.obs_properties_add_int(props, "Manual Monitor Width", "Manual Monitor Width", 320, 3840, 1)
     obs.obs_properties_add_int(props, "Manual Monitor Height", "Manual Monitor Height", 240, 3840, 1)
+    obs.obs_properties_add_int(props, "Manual Monitor X Offset", "Manual Monitor X Offset", -8000, 8000, 1)
+    obs.obs_properties_add_int(props, "Manual Monitor Y Offset", "Manual Monitor Y Offset", -8000, 8000, 1)
 
     obs.obs_properties_add_int(props, "Width", "Zoom Window Width", 320, 3840, 1)
     obs.obs_properties_add_int(props, "Height", "Zoom Window Height", 240, 3840, 1)
