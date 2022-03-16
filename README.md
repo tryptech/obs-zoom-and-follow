@@ -39,3 +39,4 @@ To Do
 -----
 - Toggle to ignore deadzone in center / Always follow mouse / Always try to keep mouse in the center of the screen.
 - Move hotkey to script settings (?)
+- Refactor using PyWinCtl
