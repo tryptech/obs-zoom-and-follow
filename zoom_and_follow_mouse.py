@@ -1,6 +1,7 @@
 import obspython as obs
 from pynput.mouse import Controller  # python -m pip install pynput
 from screeninfo import get_monitors  # python -m pip install screeninfo
+import pywinctl
 
 
 c = Controller()
@@ -95,6 +96,15 @@ class CursorWindow:
         zoom_u = self.z_y + int(self.active_border * borderScale)
         zoom_d = self.z_y + self.zoom_h - int(self.active_border * borderScale)
 
+        # Clamp zone edges at center
+        if zoom_r < zoom_l:
+            zoom_l = self.z_x + int(self.zoom_w/2.0)
+            zoom_r = zoom_l
+
+        if zoom_d < zoom_u:
+            zoom_u = self.z_y + int(self.zoom_h/2.0)
+            zoom_d = zoom_u
+
         # Set smoothing values
         smoothFactor = int((self.smooth * 9) / 10 + 1)
 
@@ -107,12 +117,14 @@ class CursorWindow:
         # Set x and y zoom offset
         offset_x = 0
         offset_y = 0
-
+        
         if x_o < zoom_l:
             offset_x = self.check_offset(x_o, zoom_l, smoothFactor)
             move = True
         elif x_o > zoom_r:
             offset_x = self.check_offset(x_o, zoom_r, smoothFactor)
+            print("z-lrud: " + str(zoom_l) + ", " + str(zoom_r) + ", " + str(zoom_u) + ", " + str(zoom_d))
+            print("xoof")
             move = True
 
         if y_o < zoom_u:
@@ -120,6 +132,7 @@ class CursorWindow:
             move = True
         elif y_o > zoom_d:
             offset_y = self.check_offset(y_o, zoom_d, smoothFactor)
+            print("yoof")
             move = True
 
         # Max speed clamp
@@ -306,7 +319,7 @@ def script_properties():
 
     obs.obs_properties_add_int(props, "Width", "Zoom Window Width", 320, 3840, 1)
     obs.obs_properties_add_int(props, "Height", "Zoom Window Height", 240, 3840, 1)
-    obs.obs_properties_add_float_slider(props, "Border", "Active Border", 0, 0.33, 0.01)
+    obs.obs_properties_add_float_slider(props, "Border", "Active Border", 0, 0.5, 0.01)
     obs.obs_properties_add_int(props, "Speed", "Max Scroll Speed", 0, 540, 10)
     obs.obs_properties_add_float_slider(props, "Smooth", "Smooth", 0, 10, 0.01)
     obs.obs_properties_add_int_slider(props, "Zoom", "Zoom Duration (ms)", 0, 1000, 1)
