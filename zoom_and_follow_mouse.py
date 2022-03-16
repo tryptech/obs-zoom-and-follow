@@ -123,8 +123,6 @@ class CursorWindow:
             move = True
         elif x_o > zoom_r:
             offset_x = self.check_offset(x_o, zoom_r, smoothFactor)
-            print("z-lrud: " + str(zoom_l) + ", " + str(zoom_r) + ", " + str(zoom_u) + ", " + str(zoom_d))
-            print("xoof")
             move = True
 
         if y_o < zoom_u:
@@ -132,7 +130,6 @@ class CursorWindow:
             move = True
         elif y_o > zoom_d:
             offset_y = self.check_offset(y_o, zoom_d, smoothFactor)
-            print("yoof")
             move = True
 
         # Max speed clamp
@@ -143,7 +140,8 @@ class CursorWindow:
 
         self.z_x += offset_x
         self.z_y += offset_y
-        self.check_pos()
+        if (self.active_border < 0.5):
+            self.check_pos()
 
         return move
 
