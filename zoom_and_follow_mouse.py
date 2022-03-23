@@ -1,11 +1,10 @@
 import obspython as obs
-from pynput.mouse import Controller  # python -m pip install pynput
-from screeninfo import get_monitors  # python -m pip install screeninfo
-import pywinctl
+import pywinctl as pwc # python -m pip install pywinctl
+from math import sqrt
+from json import loads
 
-
-c = Controller()
-get_position = lambda: c.position
+c = pwc.getMousePos
+get_position = lambda: [c().x, c().y]
 zoom_id_tog = None
 follow_id_tog = None
 ZOOM_NAME_TOG = "zoom.toggle"
@@ -13,6 +12,7 @@ FOLLOW_NAME_TOG = "follow.toggle"
 ZOOM_DESC_TOG = "Enable/Disable Mouse Zoom"
 FOLLOW_DESC_TOG = "Enable/Disable Mouse Follow"
 USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
+
 
 # -------------------------------------------------------------------
 
@@ -23,46 +23,51 @@ class CursorWindow:
     zo_timer = 0
     lock = True
     track = True
-    monitor_idx = 0
-    d_w = get_monitors()[monitor_idx].width
-    d_h = get_monitors()[monitor_idx].height
-    m_x = get_monitors()[monitor_idx].x
-    m_y = get_monitors()[monitor_idx].y
-    d_w_override = get_monitors()[monitor_idx].width
-    d_h_override = get_monitors()[monitor_idx].height
-    m_x_override = get_monitors()[monitor_idx].x
-    m_y_override = get_monitors()[monitor_idx].y
+    windows = pwc.getAllAppsWindowsTitles()
+    monitors = pwc.getAllScreens()
+    monitors_key = list(dict.keys(monitors))
+    d_w = 0
+    d_h = 0
+    s_x = 0
+    s_y = 0
+    s_x_override = 0
+    s_y_override = 0
     z_x = 0
     z_y = 0
-    refresh_rate = 16
+    refresh_rate = int(obs.obs_get_frame_interval_ns()/1000000)
     source_name = ""
+    source_type = ""
     zoom_w = 1280
     zoom_h = 720
     active_border = 0.15
     max_speed = 160
     smooth = 1.0
-    zoom_d = 300
+    zoom_time = 300
 
-    def update_monitor_size(self):
-        monitors = get_monitors()
-        if self.monitor_idx < len(monitors):
-            monitor = get_monitors()[self.monitor_idx]
-            self.d_w = monitor.width
-            self.d_h = monitor.height
-            self.m_x = monitor.x
-            self.m_y = monitor.y
-        else:
-            self.d_w = self.d_w_override
-            self.d_h = self.d_h_override
-            self.m_x = self.m_x_override
-            self.m_y = self.m_y_override
+    def update_sources(self):
+        windows = pwc.getAllAppsWindowsTitles()
+        monitors = pwc.getAllScreens()
+        monitors_key = list(dict.keys(monitors))
 
-    def switch_to_monitor(self, monitor_name):
-        for i, monitor in enumerate(get_monitors()):
-            if monitor_name == monitor.name:
-                self.monitor_idx = i
-                return
-        self.monitor_idx = len(get_monitors()) + 1000
+    def update_source_size(self):
+        data = ''
+        if self.source_type == "window_capture":
+            data = loads(obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name))))['window'].split(":")
+            #Waiting on PyWinCtl to add window positions
+        elif self.source_type == 'monitor_capture': 
+            data = loads(obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name))))['monitor']
+            monitor = ''
+            for i in range(len(self.monitors_key)):
+                monitor = self.monitors[self.monitors_key[i]]
+                if (monitor['id'] == data):
+                    self.d_w = monitor['size'].width
+                    self.d_h = monitor['size'].height
+                    self.s_x = monitor['pos'].x
+                    self.s_y = monitor['pos'].y
+        if (self.s_x_override > 0):
+            self.s_x += self.s_x_override
+        if (self.s_y_override > 0):
+            self.s_y += self.s_y_override
 
     def resetZI(self):
         self.zi_timer = 0
@@ -83,6 +88,17 @@ class CursorWindow:
 
     def follow(self, mousePos):
         # Updates Zoom window position
+        
+        track = False
+
+        if (mousePos[0] - (self.s_x + self.d_w) < 0) and (mousePos[0] - self.s_x > 0):
+            if (mousePos[1] - (self.s_y + self.d_h) < 0) and (mousePos[1] - self.s_y > 0):
+                track = True
+
+        if not track:
+            return track
+
+        move = False
 
         # Find shortest dimension (usually height)
         if self.d_w > self.d_h:
@@ -91,52 +107,52 @@ class CursorWindow:
             borderScale = self.d_w
 
         # Get active zone edges
-        zoom_l = self.z_x + int(self.active_border * borderScale)
-        zoom_r = self.z_x + self.zoom_w - int(self.active_border * borderScale)
-        zoom_u = self.z_y + int(self.active_border * borderScale)
-        zoom_d = self.z_y + self.zoom_h - int(self.active_border * borderScale)
+        zoom_edge_left = self.z_x + int(self.active_border * borderScale)
+        zoom_edge_right = self.z_x + self.zoom_w - int(self.active_border * borderScale)
+        zoom_edge_top = self.z_y + int(self.active_border * borderScale)
+        zoom_edge_bottom = self.z_y + self.zoom_h - int(self.active_border * borderScale)
 
         # Clamp zone edges at center
-        if zoom_r < zoom_l:
-            zoom_l = self.z_x + int(self.zoom_w/2.0)
-            zoom_r = zoom_l
+        if zoom_edge_right < zoom_edge_left:
+            zoom_edge_left = self.z_x + int(self.zoom_w/2.0)
+            zoom_edge_right = zoom_edge_left
 
-        if zoom_d < zoom_u:
-            zoom_u = self.z_y + int(self.zoom_h/2.0)
-            zoom_d = zoom_u
+        if zoom_edge_bottom < zoom_edge_top:
+            zoom_edge_top = self.z_y + int(self.zoom_h/2.0)
+            zoom_edge_bottom = zoom_edge_top
 
         # Set smoothing values
         smoothFactor = int((self.smooth * 9) / 10 + 1)
 
-        move = False
 
         # Set x and y zoom offset
-        x_o = mousePos[0] - self.m_x
-        y_o = mousePos[1] - self.m_y
+        x_o = mousePos[0] - self.s_x
+        y_o = mousePos[1] - self.s_y
 
         # Set x and y zoom offset
         offset_x = 0
         offset_y = 0
         
-        if x_o < zoom_l:
-            offset_x = self.check_offset(x_o, zoom_l, smoothFactor)
+        if x_o < zoom_edge_left:
+            offset_x = self.check_offset(x_o, zoom_edge_left, smoothFactor)
             move = True
-        elif x_o > zoom_r:
-            offset_x = self.check_offset(x_o, zoom_r, smoothFactor)
+        elif x_o > zoom_edge_right:
+            offset_x = self.check_offset(x_o, zoom_edge_right, smoothFactor)
             move = True
 
-        if y_o < zoom_u:
-            offset_y = self.check_offset(y_o, zoom_u, smoothFactor)
+        if y_o < zoom_edge_top:
+            offset_y = self.check_offset(y_o, zoom_edge_top, smoothFactor)
             move = True
-        elif y_o > zoom_d:
-            offset_y = self.check_offset(y_o, zoom_d, smoothFactor)
+        elif y_o > zoom_edge_bottom:
+            offset_y = self.check_offset(y_o, zoom_edge_bottom, smoothFactor)
             move = True
 
         # Max speed clamp
-        if abs(offset_x) > self.max_speed:
-            offset_x = int(offset_x * self.max_speed / abs(offset_x))
-        if abs(offset_y) > self.max_speed:
-            offset_y = int(offset_y * self.max_speed / abs(offset_y))
+        speed_h = sqrt((offset_x**2)+(offset_y**2))
+        if (speed_h > self.max_speed):
+            speed_factor = speed_h/float(self.max_speed)
+            offset_x *= speed_factor
+            offset_y *= speed_factor
 
         self.z_x += offset_x
         self.z_y += offset_y
@@ -158,7 +174,7 @@ class CursorWindow:
 
     def set_crop(self, inOut):
         # Set crop filter dimensions
-        totalFrames = int(self.zoom_d / self.refresh_rate)
+        totalFrames = int(self.zoom_time / self.refresh_rate)
 
         source = obs.obs_get_source_by_name(self.source_name)
         crop = obs.obs_source_get_filter_by_name(source, "ZoomCrop")
@@ -239,81 +255,67 @@ class CursorWindow:
 
 zoom = CursorWindow()
 
+
 # -------------------------------------------------------------------
 
 
 def script_description():
     return (
-        "Crops and resizes a display capture source to simulate a zoomed in mouse. Intended for use with one monitor or the primary monitor of a multi-monitor setup.\n\n"
+        "Crops and resizes a source to simulate a zoomed in tracked to the mouse.\n\n"
         + "Set activation hotkey in Settings.\n\n"
-        + "Active Border enables lazy tracking; calculated as percent of smallest dimension (Max of 33%)\n\n"
+        + "Active Border enables lazy tracking; border size calculated as percent of smallest dimension. "
+        + "Border of 50% keeps mouse locked in the center of the zoom frame\n\n"
         + "By tryptech (@yo_tryptech)"
     )
 
 
 def script_defaults(settings):
-    obs.obs_data_set_default_int(settings, "interval", zoom.refresh_rate)
+    zoom.update_sources()
     obs.obs_data_set_default_int(settings, "Width", zoom.zoom_w)
     obs.obs_data_set_default_int(settings, "Height", zoom.zoom_h)
     obs.obs_data_set_default_double(settings, "Border", zoom.active_border)
     obs.obs_data_set_default_int(settings, "Speed", zoom.max_speed)
     obs.obs_data_set_default_double(settings, "Smooth", zoom.smooth)
-    obs.obs_data_set_default_int(settings, "Zoom", int(zoom.zoom_d))
-    obs.obs_data_set_default_string(settings, "Monitor", get_monitors()[0].name)
-    obs.obs_data_set_default_int(settings, "Manual Monitor Width", get_monitors()[0].width)
-    obs.obs_data_set_default_int(settings, "Manual Monitor Height", get_monitors()[0].height)
-    obs.obs_data_set_default_int(settings, "Manual Monitor X Offset", get_monitors()[0].x)
-    obs.obs_data_set_default_int(settings, "Manual Monitor Y Offset", get_monitors()[0].y)
+    obs.obs_data_set_default_int(settings, "Zoom", int(zoom.zoom_time))
+    obs.obs_data_set_default_int(settings, "Manual X Offset", 0)
+    obs.obs_data_set_default_int(settings, "Manual Y Offset", 0)
 
 
 def script_update(settings):
-    zoom.refresh_rate = obs.obs_data_get_int(settings, "interval")
     zoom.source_name = obs.obs_data_get_string(settings, "source")
+    zoom.source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(zoom.source_name))
     zoom.zoom_w = obs.obs_data_get_int(settings, "Width")
     zoom.zoom_h = obs.obs_data_get_int(settings, "Height")
     zoom.active_border = obs.obs_data_get_double(settings, "Border")
     zoom.max_speed = obs.obs_data_get_int(settings, "Speed")
     zoom.smooth = obs.obs_data_get_double(settings, "Smooth")
-    zoom.zoom_d = obs.obs_data_get_double(settings, "Zoom")
-    zoom.switch_to_monitor(obs.obs_data_get_string(settings, "Monitor"))
-    zoom.d_w_override = obs.obs_data_get_int(settings, "Manual Monitor Width")
-    zoom.d_h_override = obs.obs_data_get_int(settings, "Manual Monitor Height")
-    zoom.m_x_override = obs.obs_data_get_int(settings, "Manual Monitor X Offset")
-    zoom.m_y_override = obs.obs_data_get_int(settings, "Manual Monitor Y Offset")
+    zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
+    zoom.s_x_override = obs.obs_data_get_int(settings, "Manual X Offset")
+    zoom.s_y_override = obs.obs_data_get_int(settings, "Manual Y Offset")
 
 
 def script_properties():
     props = obs.obs_properties_create()
 
-    obs.obs_properties_add_int(props, "interval", "Update Interval (ms)", 16, 300, 1)
     p = obs.obs_properties_add_list(
         props,
         "source",
-        "Select display source",
+        "Zoom Source",
         obs.OBS_COMBO_TYPE_EDITABLE,
         obs.OBS_COMBO_FORMAT_STRING,
     )
+
     sources = obs.obs_enum_sources()
     if sources is not None:
         for source in sources:
-            name = obs.obs_source_get_name(source)
-            obs.obs_property_list_add_string(p, name, name)
-        obs.source_list_release(sources)
+            source_type = obs.obs_source_get_id(source)
+            if source_type == "monitor_capture": #source_type == "window_capture" or source_type == "monitor_capture" or "game_capture"
+                name = obs.obs_source_get_name(source)
+                obs.obs_property_list_add_string(p, name, name)
+    obs.source_list_release(sources)
 
-    monitors_prop_list = obs.obs_properties_add_list(
-        props,
-        "Monitor",
-        "Select monitor to use base for zooming",
-        obs.OBS_COMBO_TYPE_EDITABLE,
-        obs.OBS_COMBO_FORMAT_STRING,
-    )
-    for monitor in get_monitors():
-        obs.obs_property_list_add_string(monitors_prop_list, monitor.name, monitor.name)
-    obs.obs_property_list_add_string(monitors_prop_list, USE_MANUAL_MONITOR_SIZE, USE_MANUAL_MONITOR_SIZE)
-    obs.obs_properties_add_int(props, "Manual Monitor Width", "Manual Monitor Width", 320, 3840, 1)
-    obs.obs_properties_add_int(props, "Manual Monitor Height", "Manual Monitor Height", 240, 3840, 1)
-    obs.obs_properties_add_int(props, "Manual Monitor X Offset", "Manual Monitor X Offset", -8000, 8000, 1)
-    obs.obs_properties_add_int(props, "Manual Monitor Y Offset", "Manual Monitor Y Offset", -8000, 8000, 1)
+    obs.obs_properties_add_int(props, "Manual X Offset", "Manual X Offset", -8000, 8000, 1)
+    obs.obs_properties_add_int(props, "Manual Y Offset", "Manual Y Offset", -8000, 8000, 1)
 
     obs.obs_properties_add_int(props, "Width", "Zoom Window Width", 320, 3840, 1)
     obs.obs_properties_add_int(props, "Height", "Zoom Window Height", 240, 3840, 1)
@@ -327,6 +329,7 @@ def script_properties():
 
 def script_load(settings):
     global zoom_id_tog
+    zoom.update_sources()
     zoom_id_tog = obs.obs_hotkey_register_frontend(
         ZOOM_NAME_TOG, ZOOM_DESC_TOG, toggle_zoom
     )
@@ -343,11 +346,9 @@ def script_load(settings):
     obs.obs_data_array_release(hotkey_save_array)
 
 
-
 def script_unload():
     obs.obs_hotkey_unregister(toggle_zoom)
     obs.obs_hotkey_unregister(toggle_follow)
-
 
 
 def script_save(settings):
@@ -363,13 +364,14 @@ def script_save(settings):
 def toggle_zoom(pressed):
     if pressed:
         if zoom.source_name != "" and zoom.flag:
-            zoom.update_monitor_size()
+            zoom.update_source_size()
             obs.timer_add(zoom.tick, zoom.refresh_rate)
             zoom.lock = True
             zoom.flag = False
         elif not zoom.flag:
             zoom.flag = True
             zoom.lock = False
+
 
 def toggle_follow(pressed):
     if pressed:

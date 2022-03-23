@@ -7,19 +7,14 @@ Have you ever needed to zoom in on your screen to show some fine detail work, or
 
 Dependencies
 ------------
-- [pynput](https://github.com/moses-palmer/pynput) by [moses-palmer](https://github.com/moses-palmer)
-- [screeninfo](https://github.com/rr-/screeninfo) by [rr-](https://github.com/rr-)
+- [PyWinCtl](https://github.com/Kalmat/PyWinCtl/) by [Kalmat](https://github.com/Kalmat)
 
 Install
 -------
-- Install Python 3 (3.6 for Windows, that's what OBS works with)
-- Install pynput 
+- Install Python 3 (3.6.8 for Windows, that's what OBS works with)
+- Install PyWinCtl *-waiting for release of 0.0.29* 
   ```console 
-  $ python -m pip install pynput
-  ```
-- Install screeninfo
-  ```console 
-  $ python -m pip install screeninfo
+  $ python -m pip install PyWinCtl
   ```
 - Add `zoom_and_follow_mouse.py` as an OBS script
 
@@ -28,15 +23,15 @@ How to Use
 - Setup a hotkey for "Enable/Disable Mouse Zoom"
 - Setup a hotkey for "Enable/Disable Mouse Follow"
 - Select a source to zoom into as part of the script settings
-- Configure the settings to your liking
-- You're done!
+- Configure the size of the zoom window
+- Use Zoom hotkey to zoom in to the source
+
+If there are any issues after changing any scenes/sources, reload the script
 
 Set up zooms for different sources
 ---
-- Copy paste `zoom_and_follow_mouse.py` file , add it as an OBS script, and repeat **How to Use**.
+Duplicate (and optionally rename) `zoom_and_follow_mouse.py`, add it as an OBS script, and follow the **How to Use** section with the duplicate copy.
 
 To Do
 -----
-- Toggle to ignore deadzone in center / Always follow mouse / Always try to keep mouse in the center of the screen.
-- Move hotkey to script settings (?)
-- Refactor using PyWinCtl
+- Zoom compatibility for window capture/game capture.
