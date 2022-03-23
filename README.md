@@ -1,5 +1,9 @@
 Zoom and Follow
 ---------------
+
+
+*Currently refactoring under the **PyWinCtl** branch to consolidate dependencies, simplify use, and remove extraneous settings*
+
 Have you ever needed to zoom in on your screen to show some fine detail work, or to make your large 4k/ultrawide monitor less daunting? **Zoom and Follow** for OBS Studio does exactly that, zooms in on your mouse and follows it around. Configurable and low-impact, you can now do old school Camtasia zoom ***live***!
 
 *Inspired by [caharkness](https://obsproject.com/forum/members/caharkness.153928/)'s [Magic Window](https://obsproject.com/forum/threads/magic-window.107614/)*
