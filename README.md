@@ -12,10 +12,7 @@ Dependencies
 Install
 -------
 - Install Python 3 (3.6.8 for Windows, that's what OBS works with)
-- Install PyWinCtl *-waiting for release of 0.0.29* 
-  ```console 
-  $ python -m pip install PyWinCtl
-  ```
+- [Install PyWinCtl](https://github.com/Kalmat/PyWinCtl#install)
 - Add `zoom_and_follow_mouse.py` as an OBS script
 
 How to Use
