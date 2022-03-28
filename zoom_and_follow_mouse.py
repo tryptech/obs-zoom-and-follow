@@ -1,7 +1,7 @@
 import obspython as obs
 from pynput.mouse import Controller  # python -m pip install pynput
 from screeninfo import get_monitors  # python -m pip install screeninfo
-import pywinctl
+#import pywinctl I think this is un necessary
 
 
 c = Controller()
