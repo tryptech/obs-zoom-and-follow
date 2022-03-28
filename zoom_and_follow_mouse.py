@@ -98,8 +98,8 @@ class CursorWindow:
 
         if (mousePos[0] - (self.s_x + self.d_w) < 0) and (mousePos[0] - self.s_x > 0):
             if (mousePos[1] - (self.s_y + self.d_h) < 0) and (mousePos[1] - self.s_y > 0):
-                if (self.source_type != 'monitor_capture'):
-                        track = True
+                    track = True
+
 
         if not track:
             return track
