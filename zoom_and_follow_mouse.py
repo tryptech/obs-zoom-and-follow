@@ -51,8 +51,9 @@ class CursorWindow:
         monitors_key = list(dict.keys(monitors))
 
     def update_source_size(self):
-        if (self.source_type == 'window_capture'):
-            data = loads(obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name))))['window'].split(":")
+        data = obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name)))
+        if (self.source_type == 'window_capture') or (self.source_type == 'game_capture'):
+            data = loads(data)['window'].split(":")
             window = pwc.getWindowsWithTitle(data[0])[0]
             window_dim = window.getClientFrame()
             self.d_w = window_dim.right - window_dim.left
@@ -60,7 +61,7 @@ class CursorWindow:
             self.s_x = window_dim.left
             self.s_y = window_dim.top
         elif (self.source_type == 'monitor_capture'): 
-            data = loads(obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name))))['monitor']
+            data = loads(data)['monitor']
             for i in range(len(self.monitors_key)):
                 monitor = self.monitors[self.monitors_key[i]]
                 if (monitor['id'] == data):
@@ -314,7 +315,7 @@ def script_properties():
     if sources is not None:
         for source in sources:
             source_type = obs.obs_source_get_id(source)
-            if source_type == "monitor_capture" or source_type == "window_capture": # or source_type == "game_capture":
+            if source_type == "monitor_capture" or source_type == "window_capture" or source_type == "game_capture":
                 name = obs.obs_source_get_name(source)
                 obs.obs_property_list_add_string(p, name, name)
     obs.source_list_release(sources)
