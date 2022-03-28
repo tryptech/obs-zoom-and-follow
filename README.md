@@ -31,4 +31,4 @@ Duplicate (and optionally rename) `zoom_and_follow_mouse.py`, add it as an OBS s
 
 To Do
 -----
-- Zoom compatibility for window capture/game capture.
+- Only track windows/games when they are the active game
