@@ -23,7 +23,7 @@ class CursorWindow:
     zo_timer = 0
     lock = True
     track = True
-    windows = pwc.getAllAppsWindowsTitles()
+    windows = ''
     window = ''
     monitors = pwc.getAllScreens()
     monitors_key = list(dict.keys(monitors))
@@ -226,10 +226,10 @@ class CursorWindow:
                     s, "cy", self.d_h - int(time * (self.d_h - self.zoom_h)),
                 )
             else:
-                i(s, "left", self.z_x)
-                i(s, "top", self.z_y)
-                i(s, "cx", self.zoom_w)
-                i(s, "cy", self.zoom_h)
+                i(s, "left", int(self.z_x))
+                i(s, "top", int(self.z_y))
+                i(s, "cx", int(self.zoom_w))
+                i(s, "cy", int(self.zoom_h))
 
         obs.obs_source_update(crop, s)
 
@@ -274,7 +274,6 @@ def script_description():
 
 
 def script_defaults(settings):
-    zoom.update_sources()
     obs.obs_data_set_default_int(settings, "Width", zoom.zoom_w)
     obs.obs_data_set_default_int(settings, "Height", zoom.zoom_h)
     obs.obs_data_set_default_double(settings, "Border", zoom.active_border)
@@ -286,6 +285,7 @@ def script_defaults(settings):
 
 
 def script_update(settings):
+    zoom.update_sources()
     zoom.source_name = obs.obs_data_get_string(settings, "source")
     zoom.source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(zoom.source_name))
     zoom.zoom_w = obs.obs_data_get_int(settings, "Width")
@@ -333,7 +333,6 @@ def script_properties():
 
 def script_load(settings):
     global zoom_id_tog
-    zoom.update_sources()
     zoom_id_tog = obs.obs_hotkey_register_frontend(
         ZOOM_NAME_TOG, ZOOM_DESC_TOG, toggle_zoom
     )
