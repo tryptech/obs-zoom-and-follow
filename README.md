@@ -12,7 +12,7 @@ Dependencies
 Install
 -------
 - Install Python 3 (3.6.8 for Windows, that's what OBS works with)
-- [Install PyWinCtl](https://github.com/Kalmat/PyWinCtl#install)
+- [Install PyWinCtl](https://github.com/Kalmat/PyWinCtl#install) (Make sure it is at least ver 0.0.30)
 - Add `zoom_and_follow_mouse.py` as an OBS script
 
 How to Use
@@ -21,6 +21,7 @@ How to Use
 - Setup a hotkey for "Enable/Disable Mouse Follow"
 - Select a source to zoom into as part of the script settings
 - Configure the size of the zoom window
+- Edit the bounding box settings for the source in it's "Edit Transform" menu
 - Use Zoom hotkey to zoom in to the source
 
 If there are any issues after changing any scenes/sources, reload the script
@@ -31,4 +32,5 @@ Duplicate (and optionally rename) `zoom_and_follow_mouse.py`, add it as an OBS s
 
 To Do
 -----
-- Only track windows/games when they are the active game
+- Automatically setup transform bounding box
+- Only track windows/games when they are the active window

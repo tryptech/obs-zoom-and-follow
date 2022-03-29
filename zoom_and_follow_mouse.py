@@ -100,7 +100,6 @@ class CursorWindow:
             if (mousePos[1] - (self.s_y + self.d_h) < 0) and (mousePos[1] - self.s_y > 0):
                     track = True
 
-
         if not track:
             return track
 
@@ -129,7 +128,6 @@ class CursorWindow:
 
         # Set smoothing values
         smoothFactor = int((self.smooth * 9) / 10 + 1)
-
 
         # Set x and y zoom offset
         x_o = mousePos[0] - self.s_x
