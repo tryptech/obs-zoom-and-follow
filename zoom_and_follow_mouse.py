@@ -27,6 +27,7 @@ class CursorWindow:
     window = ''
     monitors = pwc.getAllScreens()
     monitors_key = list(dict.keys(monitors))
+    monitor = ''
     d_w = 0
     d_h = 0
     s_x = 0
@@ -50,27 +51,40 @@ class CursorWindow:
         self.monitors = pwc.getAllScreens()
         self.monitors_key = list(dict.keys(self.monitors))
 
+    def update_window_dim(self):
+        if (self.source_type == 'window_capture') or (self.source_type == 'game_capture'):
+            window_dim = self.window.getClientFrame()
+            if (window_dim.right - window_dim.left != self.d_w) and (window_dim.bottom - window_dim.top != self.d_h) and (window_dim.left != self.s_x) and (window_dim.top != self.s_y):
+                self.d_w = window_dim.right - window_dim.left
+                self.d_h = window_dim.bottom - window_dim.top
+                self.s_x = window_dim.left
+                self.s_y = window_dim.top
+
+    def update_monitor_dim(self, monitor, id):
+        if (monitor['id'] == id):
+            self.d_w = monitor['size'].width
+            self.d_h = monitor['size'].height
+            self.s_x = monitor['pos'].x
+            self.s_y = monitor['pos'].y
+
+
     def update_source_size(self):
         data = obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name)))
         self.source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(self.source_name))
         if (self.source_type == 'window_capture') or (self.source_type == 'game_capture'):
             data = loads(data)['window'].split(":")
-            window = pwc.getWindowsWithTitle(data[0])[0]
-            window_dim = window.getClientFrame()
-            self.d_w = window_dim.right - window_dim.left
-            self.d_h = window_dim.bottom - window_dim.top
-            self.s_x = window_dim.left
-            self.s_y = window_dim.top
+            self.window = pwc.getWindowsWithTitle(self.windows[data[2]][0])[0]
+            self.update_window_dim()
         elif (self.source_type == 'monitor_capture'): 
-            print(loads(data))
-            data = loads(data)['monitor']
-            for i in range(len(self.monitors_key)):
-                monitor = self.monitors[self.monitors_key[i]]
-                if (monitor['id'] == data):
-                    self.d_w = monitor['size'].width
-                    self.d_h = monitor['size'].height
-                    self.s_x = monitor['pos'].x
-                    self.s_y = monitor['pos'].y
+            try:
+                data = loads(data)['monitor']
+            except:
+                print("Key 'monitor' does not exist in data")
+                print(loads(data))
+            else:
+                for i in range(len(self.monitors_key)):
+                    monitor = self.monitors[self.monitors_key[i]]
+                    self.update_monitor_dim(monitor, data)
         if (self.s_x_override > 0):
             self.s_x += self.s_x_override
         if (self.s_y_override > 0):
@@ -95,7 +109,8 @@ class CursorWindow:
 
     def follow(self, mousePos):
         # Updates Zoom window position
-        
+        self.update_window_dim()
+
         track = False
 
         if (mousePos[0] - (self.s_x + self.d_w) < 0) and (mousePos[0] - self.s_x > 0):
@@ -108,11 +123,10 @@ class CursorWindow:
         move = False
 
         # Find shortest dimension (usually height)
-        if self.d_w > self.d_h:
-            borderScale = self.d_h
+        if self.zoom_w > self.zoom_h:
+            borderScale = self.zoom_h
         else:
-            borderScale = self.d_w
-
+            borderScale = self.zoom_w
         # Get active zone edges
         zoom_edge_left = self.z_x + int(self.active_border * borderScale)
         zoom_edge_right = self.z_x + self.zoom_w - int(self.active_border * borderScale)
@@ -287,7 +301,9 @@ def script_defaults(settings):
 
 
 def script_update(settings):
-    zoom.source_name = obs.obs_data_get_string(settings, "source")
+    if zoom.source_name != obs.obs_data_get_string(settings, "source"):
+        zoom.source_name = obs.obs_data_get_string(settings, "source")
+        zoom.update_sources()
     zoom.zoom_w = obs.obs_data_get_int(settings, "Width")
     zoom.zoom_h = obs.obs_data_get_int(settings, "Height")
     zoom.active_border = obs.obs_data_get_double(settings, "Border")
@@ -296,7 +312,6 @@ def script_update(settings):
     zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
     zoom.s_x_override = obs.obs_data_get_int(settings, "Manual X Offset")
     zoom.s_y_override = obs.obs_data_get_int(settings, "Manual Y Offset")
-    zoom.update_sources()
 
 
 def script_properties():
