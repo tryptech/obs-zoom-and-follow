@@ -46,12 +46,13 @@ class CursorWindow:
     zoom_time = 300
 
     def update_sources(self):
-        windows = pwc.getAllAppsWindowsTitles()
-        monitors = pwc.getAllScreens()
-        monitors_key = list(dict.keys(monitors))
+        self.windows = pwc.getAllAppsWindowsTitles()
+        self.monitors = pwc.getAllScreens()
+        self.monitors_key = list(dict.keys(self.monitors))
 
     def update_source_size(self):
         data = obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name)))
+        self.source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(self.source_name))
         if (self.source_type == 'window_capture') or (self.source_type == 'game_capture'):
             data = loads(data)['window'].split(":")
             window = pwc.getWindowsWithTitle(data[0])[0]
@@ -61,6 +62,7 @@ class CursorWindow:
             self.s_x = window_dim.left
             self.s_y = window_dim.top
         elif (self.source_type == 'monitor_capture'): 
+            print(loads(data))
             data = loads(data)['monitor']
             for i in range(len(self.monitors_key)):
                 monitor = self.monitors[self.monitors_key[i]]
@@ -285,9 +287,7 @@ def script_defaults(settings):
 
 
 def script_update(settings):
-    zoom.update_sources()
     zoom.source_name = obs.obs_data_get_string(settings, "source")
-    zoom.source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(zoom.source_name))
     zoom.zoom_w = obs.obs_data_get_int(settings, "Width")
     zoom.zoom_h = obs.obs_data_get_int(settings, "Height")
     zoom.active_border = obs.obs_data_get_double(settings, "Border")
@@ -296,6 +296,7 @@ def script_update(settings):
     zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
     zoom.s_x_override = obs.obs_data_get_int(settings, "Manual X Offset")
     zoom.s_y_override = obs.obs_data_get_int(settings, "Manual Y Offset")
+    zoom.update_sources()
 
 
 def script_properties():
