@@ -24,7 +24,7 @@ class CursorWindow:
     lock = True
     track = True
     windows = ''
-    window = ''
+    window = None
     monitors = pwc.getAllScreens()
     monitors_key = list(dict.keys(monitors))
     monitor = ''
@@ -52,9 +52,14 @@ class CursorWindow:
         self.monitors_key = list(dict.keys(self.monitors))
 
     def update_window_dim(self):
-        if (self.source_type == 'window_capture') or (self.source_type == 'game_capture'):
+        if self.window != None:
+            # FIXME: on macos get window bounds results in an error and does not work
+            # NSInternalInconsistencyException - NSWindow drag regions should only be invalidated on the Main Thread!
             window_dim = self.window.getClientFrame()
-            if (window_dim.right - window_dim.left != self.d_w) and (window_dim.bottom - window_dim.top != self.d_h) and (window_dim.left != self.s_x) and (window_dim.top != self.s_y):
+            if ((window_dim.right - window_dim.left != self.d_w) and 
+                (window_dim.bottom - window_dim.top != self.d_h) and 
+                (window_dim.left != self.s_x) and 
+                (window_dim.top != self.s_y)):
                 self.d_w = window_dim.right - window_dim.left
                 self.d_h = window_dim.bottom - window_dim.top
                 self.s_x = window_dim.left
@@ -70,9 +75,16 @@ class CursorWindow:
     def update_source_size(self):
         data = loads(obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name))))
         self.source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(self.source_name))
+        self.window = None
         if (self.source_type in { 'window_capture', 'game_capture' }):
-            data = data['window'].split(":")
-            self.window = pwc.getWindowsWithTitle(self.windows[data[2]][0])[0]
+            if 'window_name' in data: # macos has a 'window_name' property that windows does not have
+                # pywinctl does not report application windows correctly for macos yet, so we must capture based on
+                # the actual window name and not based on the application like we do for windows.
+                window_name = data.get('window_name')
+            elif 'window' in data: # windows and linux
+                application_name = data['window'].split(":")[2]
+                window_name = self.windows[application_name][0]
+            self.window = pwc.getWindowsWithTitle(window_name)[0]
             self.update_window_dim()
         elif (self.source_type == 'monitor_capture'):
             monitor_id = data.get('monitor', None)
