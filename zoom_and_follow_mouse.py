@@ -60,8 +60,7 @@ class CursorWindow:
                 self.s_x = window_dim.left
                 self.s_y = window_dim.top
 
-    def update_monitor_dim(self, monitor, id):
-        if (monitor['id'] == id):
+    def update_monitor_dim(self, monitor):
             self.d_w = monitor['size'].width
             self.d_h = monitor['size'].height
             self.s_x = monitor['pos'].x
@@ -75,16 +74,14 @@ class CursorWindow:
             data = data['window'].split(":")
             self.window = pwc.getWindowsWithTitle(self.windows[data[2]][0])[0]
             self.update_window_dim()
-        elif (self.source_type == 'monitor_capture'): 
-            try:
-                data = data['monitor']
-            except:
-                print("Key 'monitor' does not exist in data")
-                print(data)
+        elif (self.source_type == 'monitor_capture'):
+            monitor_id = data.get('monitor', None)
+            if monitor_id == None:
+                print(f"Key 'monitor' does not exist in {data}")
             else:
-                for i in range(len(self.monitors_key)):
-                    monitor = self.monitors[self.monitors_key[i]]
-                    self.update_monitor_dim(monitor, data)
+                for monitor in self.monitors.items():
+                    if (monitor['id'] == monitor_id):
+                        self.update_monitor_dim(monitor)
         if (self.s_x_override > 0):
             self.s_x += self.s_x_override
         if (self.s_y_override > 0):
