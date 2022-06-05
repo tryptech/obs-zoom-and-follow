@@ -1,5 +1,5 @@
 import obspython as obs 
-import pywinctl as pwc # version >=0.0.30
+import pywinctl as pwc # version >=0.0.38
 from math import sqrt
 from json import loads
 
