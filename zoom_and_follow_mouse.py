@@ -61,16 +61,16 @@ class CursorWindow:
                 self.s_y = window_dim.top
 
     def update_monitor_dim(self, monitor):
-            self.d_w = monitor['size'].width
-            self.d_h = monitor['size'].height
-            self.s_x = monitor['pos'].x
-            self.s_y = monitor['pos'].y
+        self.d_w = monitor['size'].width
+        self.d_h = monitor['size'].height
+        self.s_x = monitor['pos'].x
+        self.s_y = monitor['pos'].y
 
 
     def update_source_size(self):
         data = loads(obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name))))
         self.source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(self.source_name))
-        if (self.source_type == 'window_capture') or (self.source_type == 'game_capture'):
+        if (self.source_type in { 'window_capture', 'game_capture' }):
             data = data['window'].split(":")
             self.window = pwc.getWindowsWithTitle(self.windows[data[2]][0])[0]
             self.update_window_dim()
@@ -82,6 +82,15 @@ class CursorWindow:
                 for monitor in self.monitors.items():
                     if (monitor['id'] == monitor_id):
                         self.update_monitor_dim(monitor)
+        elif (self.source_type == 'display_capture'):
+            # the 'display' property is an index value and not the true monitor id. 
+            # we will assume that the order of the monitors returned from pywinctl 
+            # are  in the same order that OBS is assigning the display index value.
+            monitor_index = data.get('display', None)
+            if monitor_index == None:
+                print(f"Key 'display' does not exist in {data}")
+            elif (monitor_index < len(self.monitors)):
+                self.update_monitor_dim(self.monitors[self.monitors_key[monitor_index]])
         if (self.s_x_override > 0):
             self.s_x += self.s_x_override
         if (self.s_y_override > 0):
@@ -326,7 +335,7 @@ def script_properties():
     if sources is not None:
         for source in sources:
             source_type = obs.obs_source_get_id(source)
-            if source_type == "monitor_capture" or source_type == "window_capture" or source_type == "game_capture":
+            if source_type in { "monitor_capture", "window_capture", "game_capture", "display_capture" }:
                 name = obs.obs_source_get_name(source)
                 obs.obs_property_list_add_string(p, name, name)
     obs.source_list_release(sources)
