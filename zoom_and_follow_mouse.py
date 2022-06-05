@@ -69,18 +69,18 @@ class CursorWindow:
 
 
     def update_source_size(self):
-        data = obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name)))
+        data = loads(obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name))))
         self.source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(self.source_name))
         if (self.source_type == 'window_capture') or (self.source_type == 'game_capture'):
-            data = loads(data)['window'].split(":")
+            data = data['window'].split(":")
             self.window = pwc.getWindowsWithTitle(self.windows[data[2]][0])[0]
             self.update_window_dim()
         elif (self.source_type == 'monitor_capture'): 
             try:
-                data = loads(data)['monitor']
+                data = data['monitor']
             except:
                 print("Key 'monitor' does not exist in data")
-                print(loads(data))
+                print(data)
             else:
                 for i in range(len(self.monitors_key)):
                     monitor = self.monitors[self.monitors_key[i]]
