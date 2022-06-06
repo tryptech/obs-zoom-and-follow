@@ -96,14 +96,12 @@ class CursorWindow:
                         self.update_monitor_dim(monitor)
         elif (self.source_type == 'display_capture'):
             # the 'display' property is an index value and not the true monitor id. 
+            # it is only returned when there is more than one monitor on your system.
             # we will assume that the order of the monitors returned from pywinctl 
             # are  in the same order that OBS is assigning the display index value.
-            if 'display' in data:
-                monitor_index = data.get('display')
-                if (monitor_index < len(self.monitors)):
-                    self.update_monitor_dim(self.monitors[self.monitors_key[monitor_index]])
-            else:
-                print(f"Key 'display' does not exist in {data}")
+            monitor_index = data.get('display', 0)
+            if (monitor_index < len(self.monitors)):
+                self.update_monitor_dim(self.monitors[self.monitors_key[monitor_index]])
         if (self.s_x_override > 0):
             self.s_x += self.s_x_override
         if (self.s_y_override > 0):
