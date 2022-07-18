@@ -19,27 +19,15 @@ USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
 
 
 class CursorWindow:
-    flag = True
-    zi_timer = 0
-    zo_timer = 0
-    lock = True
-    track = True
-    windows = ''
+    flag = lock = track = True
+    zi_timer = zo_timer = 0
+    windows = monitor = ''
     window = None
     monitors = pwc.getAllScreens()
     monitors_key = list(dict.keys(monitors))
-    monitor = ''
-    d_w = 0
-    d_h = 0
-    s_x = 0
-    s_y = 0
-    s_x_override = 0
-    s_y_override = 0
-    z_x = 0
-    z_y = 0
+    d_w = d_h = s_x = s_y = z_x = z_y = s_x_override = s_y_override = 0
     refresh_rate = int(obs.obs_get_frame_interval_ns()/1000000)
-    source_name = ""
-    source_type = ""
+    source_name = source_type = ""
     zoom_w = 1280
     zoom_h = 720
     active_border = 0.15
@@ -178,8 +166,7 @@ class CursorWindow:
         y_o = mousePos[1] - self.s_y
 
         # Set x and y zoom offset
-        offset_x = 0
-        offset_y = 0
+        offset_x = offset_y = 0
         
         if x_o < zoom_edge_left:
             offset_x = self.check_offset(x_o, zoom_edge_left, smoothFactor)
