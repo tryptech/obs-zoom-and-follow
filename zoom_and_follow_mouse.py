@@ -24,7 +24,7 @@ class CursorWindow:
     window = None
     monitors = pwc.getAllScreens()
     monitors_key = list(dict.keys(monitors))
-    d_w = d_h = s_x = s_y = z_x = z_y = s_x_override = s_y_override = 0
+    dim_w = dim_h = source_x = source_y = zoom_x = zoom_y = source_x_override = source_y_override = 0
     refresh_rate = int(obs.obs_get_frame_interval_ns()/1000000)
     source_name = source_type = ""
     zoom_w = 1280
@@ -35,42 +35,57 @@ class CursorWindow:
     zoom_time = 300
 
     def update_sources(self):
+        """
+        Update the list of Windows and Monitors from PyWinCtl
+    
+        """
         self.windows = pwc.getAllAppsWindowsTitles()
         self.monitors = pwc.getAllScreens()
         self.monitors_key = list(dict.keys(self.monitors))
 
     def update_window_dim(self):
+        """
+        Update the stored dimensions of the selected window
+        """
         if self.window != None:
             # FIXME: on macos get window bounds results in an error and does not work
             # NSInternalInconsistencyException - NSWindow drag regions should only be invalidated on the Main Thread!
             window_dim = self.window.getClientFrame()
-            if ((window_dim.right - window_dim.left != self.d_w) and 
-                (window_dim.bottom - window_dim.top != self.d_h) and 
-                (window_dim.left != self.s_x) and 
-                (window_dim.top != self.s_y)):
-                self.d_w = window_dim.right - window_dim.left
-                self.d_h = window_dim.bottom - window_dim.top
-                self.s_x = window_dim.left
-                self.s_y = window_dim.top
+            if ((window_dim.right - window_dim.left != self.dim_w) and 
+                (window_dim.bottom - window_dim.top != self.dim_h) and 
+                (window_dim.left != self.source_x) and 
+                (window_dim.top != self.source_y)):
+                self.dim_w = window_dim.right - window_dim.left
+                self.dim_h = window_dim.bottom - window_dim.top
+                self.source_x = window_dim.left
+                self.source_y = window_dim.top
 
     def update_monitor_dim(self, monitor):
-        self.d_w = monitor[1]['size'].width
-        self.d_h = monitor[1]['size'].height
-        self.s_x = monitor[1]['pos'].x
-        self.s_y = monitor[1]['pos'].y
+        """
+        Update the stored dimensions based on the selected monitor
+
+        :param monitor: Single monitor as returned from the PyWinCtl Monitor function getAllScreens()
+        """
+        self.dim_w = monitor[1]['size'].width
+        self.dim_h = monitor[1]['size'].height
+        self.source_x = monitor[1]['pos'].x
+        self.source_y = monitor[1]['pos'].y
 
     def update_source_size(self):
-        data = ''
-        try:
+        """
+        Adjusts the source size variables based on the source given
+        """
+        try: # try to pull the data for the source object
             data = loads(obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name))))
-        except:
+        except: # if it cannot be pulled, it is most likely because the source no longer exists
             print("Source '" + self.source_name + "' does not exist. Please choose a different source")
             self.source_name = ''
         else:
             self.source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(self.source_name))
             self.window = None
             if (self.source_type in { 'window_capture', 'game_capture' }):
-                if 'window_name' in data: # macos has a 'window_name' property that windows does not have
+                if 'window_name' in data:
+                    # macos has a 'window_name' property that windows does not have
                     # pywinctl does not report application windows correctly for macos yet, so we must capture based on
                     # the actual window name and not based on the application like we do for windows.
                     window_name = data.get('window_name')
@@ -87,7 +102,7 @@ class CursorWindow:
             elif (self.source_type == 'monitor_capture'):
                 monitor_id = data.get('monitor', None)
                 if monitor_id == None:
-                    print(f"Key 'monitor' does not exist in {data}")
+                    print("Key 'monitor' does not exist in {data}")
                 else:
                     for monitor in self.monitors.items():
                         if (monitor[1]['id'] == monitor_id):
@@ -100,18 +115,30 @@ class CursorWindow:
                 monitor_index = data.get('display', 0)
                 if (monitor_index < len(self.monitors)):
                     self.update_monitor_dim(self.monitors[self.monitors_key[monitor_index]])
-            if (self.s_x_override > 0):
-                self.s_x += self.s_x_override
-            if (self.s_y_override > 0):
-                self.s_y += self.s_y_override
+            if (self.source_x_override > 0):
+                self.source_x += self.source_x_override
+            if (self.source_y_override > 0):
+                self.source_y += self.source_y_override
 
     def resetZI(self):
+        """
+        Reset the zoom-in timer
+        """
         self.zi_timer = 0
 
     def resetZO(self):
+        """
+        Reset the zoom-out timer
+        """
         self.zo_timer = 0
 
     def cubic_in_out(self, p):
+        """
+        Cubic in/out easing function. Accelerates until halfway, then decelerates.
+
+        :param p: Linear temporal percent progress through easing from 0 to 1
+        :return: Adjusted percent progress
+        """
         if p < 0.5:
             return 4 * p * p * p
         else:
@@ -119,17 +146,30 @@ class CursorWindow:
             return 0.5 * f * f * f + 1
 
     def check_offset(self, arg1, arg2, smooth):
+        """
+        Checks if a given value is offset from pivot value and provides an adjustment towards the pivot based on a smoothing factor
+
+        :param arg1: Pivot value
+        :param arg2: Checked value
+        :param smooth: Smoothing factor; larger values adjusts more aggressively 
+        :return: Adjustment value
+        """
         result = round((arg1 - arg2) / smooth)
         return int(result)
 
     def follow(self, mousePos):
-        # Updates Zoom window position
+        """
+        Updates the position of the zoom window.
+
+        :param mousePos: [x,y] position of the mouse on the canvas of all connected displays
+        :return: If the zoom window was moved
+        """
         self.update_window_dim()
 
         track = False
 
-        if (mousePos[0] - (self.s_x + self.d_w) < 0) and (mousePos[0] - self.s_x > 0):
-            if (mousePos[1] - (self.s_y + self.d_h) < 0) and (mousePos[1] - self.s_y > 0):
+        if (mousePos[0] - (self.source_x + self.dim_w) < 0) and (mousePos[0] - self.source_x > 0):
+            if (mousePos[1] - (self.source_y + self.dim_h) < 0) and (mousePos[1] - self.source_y > 0):
                     track = True
 
         if not track:
@@ -143,26 +183,26 @@ class CursorWindow:
         else:
             borderScale = self.zoom_w
         # Get active zone edges
-        zoom_edge_left = self.z_x + int(self.active_border * borderScale)
-        zoom_edge_right = self.z_x + self.zoom_w - int(self.active_border * borderScale)
-        zoom_edge_top = self.z_y + int(self.active_border * borderScale)
-        zoom_edge_bottom = self.z_y + self.zoom_h - int(self.active_border * borderScale)
+        zoom_edge_left = self.zoom_x + int(self.active_border * borderScale)
+        zoom_edge_right = self.zoom_x + self.zoom_w - int(self.active_border * borderScale)
+        zoom_edge_top = self.zoom_y + int(self.active_border * borderScale)
+        zoom_edge_bottom = self.zoom_y + self.zoom_h - int(self.active_border * borderScale)
 
         # Clamp zone edges at center
         if zoom_edge_right < zoom_edge_left:
-            zoom_edge_left = self.z_x + int(self.zoom_w/2.0)
+            zoom_edge_left = self.zoom_x + int(self.zoom_w/2.0)
             zoom_edge_right = zoom_edge_left
 
         if zoom_edge_bottom < zoom_edge_top:
-            zoom_edge_top = self.z_y + int(self.zoom_h/2.0)
+            zoom_edge_top = self.zoom_y + int(self.zoom_h/2.0)
             zoom_edge_bottom = zoom_edge_top
 
         # Set smoothing values
         smoothFactor = int((self.smooth * 9) / 10 + 1)
 
         # Set x and y zoom offset
-        x_o = mousePos[0] - self.s_x
-        y_o = mousePos[1] - self.s_y
+        x_o = mousePos[0] - self.source_x
+        y_o = mousePos[1] - self.source_y
 
         # Set x and y zoom offset
         offset_x = offset_y = 0
@@ -182,32 +222,38 @@ class CursorWindow:
             move = True
 
         # Max speed clamp
-        speed_h = sqrt((offset_x**2)+(offset_y**2))
-        if (speed_h > self.max_speed):
-            speed_factor = speed_h/float(self.max_speed)
+        speedim_h = sqrt((offset_x**2)+(offset_y**2))
+        if (speedim_h > self.max_speed):
+            speed_factor = speedim_h/float(self.max_speed)
             offset_x *= speed_factor
             offset_y *= speed_factor
 
-        self.z_x += offset_x
-        self.z_y += offset_y
+        self.zoom_x += offset_x
+        self.zoom_y += offset_y
         if (self.active_border < 0.5):
             self.check_pos()
 
         return move
 
     def check_pos(self):
-        # Checks if zoom window exceeds window dimensions and clamps it if true
-        if self.z_x < 0:
-            self.z_x = 0
-        elif self.z_x > self.d_w - self.zoom_w:
-            self.z_x = self.d_w - self.zoom_w
-        if self.z_y < 0:
-            self.z_y = 0
-        elif self.z_y > self.d_h - self.zoom_h:
-            self.z_y = self.d_h - self.zoom_h
+        """
+        Checks if zoom window exceeds window dimensions and clamps it if true
+        """
+        if self.zoom_x < 0:
+            self.zoom_x = 0
+        elif self.zoom_x > self.dim_w - self.zoom_w:
+            self.zoom_x = self.dim_w - self.zoom_w
+        if self.zoom_y < 0:
+            self.zoom_y = 0
+        elif self.zoom_y > self.dim_h - self.zoom_h:
+            self.zoom_y = self.dim_h - self.zoom_h
 
     def set_crop(self, inOut):
-        # Set crop filter dimensions
+        """
+        Set dimensions of the crop filter used for zooming
+
+        :param inOut: direction of the filter zoom, in or out
+        """
         totalFrames = int(self.zoom_time / self.refresh_rate)
 
         source = obs.obs_get_source_by_name(self.source_name)
@@ -229,35 +275,35 @@ class CursorWindow:
             if self.zo_timer < totalFrames:
                 self.zo_timer += 1
                 time = self.cubic_in_out(self.zo_timer / totalFrames)
-                i(s, "left", int(((1 - time) * self.z_x)))
-                i(s, "top", int(((1 - time) * self.z_y)))
+                i(s, "left", int(((1 - time) * self.zoom_x)))
+                i(s, "top", int(((1 - time) * self.zoom_y)))
                 i(
-                    s, "cx", self.zoom_w + int(time * (self.d_w - self.zoom_w)),
+                    s, "cx", self.zoom_w + int(time * (self.dim_w - self.zoom_w)),
                 )
                 i(
-                    s, "cy", self.zoom_h + int(time * (self.d_h - self.zoom_h)),
+                    s, "cy", self.zoom_h + int(time * (self.dim_h - self.zoom_h)),
                 )
             else:
                 i(s, "left", 0)
                 i(s, "top", 0)
-                i(s, "cx", self.d_w)
-                i(s, "cy", self.d_h)
+                i(s, "cx", self.dim_w)
+                i(s, "cy", self.dim_h)
         else:
             self.zo_timer = 0
             if self.zi_timer < totalFrames:
                 self.zi_timer += 1
                 time = self.cubic_in_out(self.zi_timer / totalFrames)
-                i(s, "left", int(time * self.z_x))
-                i(s, "top", int(time * self.z_y))
+                i(s, "left", int(time * self.zoom_x))
+                i(s, "top", int(time * self.zoom_y))
                 i(
-                    s, "cx", self.d_w - int(time * (self.d_w - self.zoom_w)),
+                    s, "cx", self.dim_w - int(time * (self.dim_w - self.zoom_w)),
                 )
                 i(
-                    s, "cy", self.d_h - int(time * (self.d_h - self.zoom_h)),
+                    s, "cy", self.dim_h - int(time * (self.dim_h - self.zoom_h)),
                 )
             else:
-                i(s, "left", int(self.z_x))
-                i(s, "top", int(self.z_y))
+                i(s, "left", int(self.zoom_x))
+                i(s, "top", int(self.zoom_y))
                 i(s, "cx", int(self.zoom_w))
                 i(s, "cy", int(self.zoom_h))
 
@@ -271,10 +317,15 @@ class CursorWindow:
             obs.remove_current_callback()
 
     def reset_crop(self):
-        # Resets crop filter dimensions and removes timer callback
+        """
+        Resets crop filter dimensions and removes timer callback
+        """
         self.set_crop(0)
 
     def tracking(self):
+        """
+        Tracking state function
+        """
         if self.lock:
             if self.track:
                 self.follow(get_position())
@@ -283,7 +334,9 @@ class CursorWindow:
             self.reset_crop()
 
     def tick(self):
-        # Containing function that is run every frame
+        """
+        Containing function that is run every frame
+        """
         self.tracking()
 
 
@@ -324,8 +377,8 @@ def script_update(settings):
     zoom.max_speed = obs.obs_data_get_int(settings, "Speed")
     zoom.smooth = obs.obs_data_get_double(settings, "Smooth")
     zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
-    zoom.s_x_override = obs.obs_data_get_int(settings, "Manual X Offset")
-    zoom.s_y_override = obs.obs_data_get_int(settings, "Manual Y Offset")
+    zoom.source_x_override = obs.obs_data_get_int(settings, "Manual X Offset")
+    zoom.source_y_override = obs.obs_data_get_int(settings, "Manual Y Offset")
 
 
 def populate_list_property_with_source_names(list_property):
