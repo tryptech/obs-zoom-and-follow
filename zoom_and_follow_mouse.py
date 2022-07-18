@@ -305,12 +305,12 @@ def script_description():
 
 
 def script_defaults(settings):
-    obs.obs_data_set_default_int(settings, "Width", zoom.zoom_w)
-    obs.obs_data_set_default_int(settings, "Height", zoom.zoom_h)
-    obs.obs_data_set_default_double(settings, "Border", zoom.active_border)
-    obs.obs_data_set_default_int(settings, "Speed", zoom.max_speed)
-    obs.obs_data_set_default_double(settings, "Smooth", zoom.smooth)
-    obs.obs_data_set_default_int(settings, "Zoom", int(zoom.zoom_time))
+    obs.obs_data_set_default_int(settings, "Width", 1280)
+    obs.obs_data_set_default_int(settings, "Height", 720)
+    obs.obs_data_set_default_double(settings, "Border", 0.15)
+    obs.obs_data_set_default_int(settings, "Speed", 160)
+    obs.obs_data_set_default_double(settings, "Smooth", 1.0)
+    obs.obs_data_set_default_int(settings, "Zoom", 300)
     obs.obs_data_set_default_int(settings, "Manual X Offset", 0)
     obs.obs_data_set_default_int(settings, "Manual Y Offset", 0)
 
@@ -330,16 +330,16 @@ def script_update(settings):
 
 
 def populate_list_property_with_source_names(list_property):
-  sources = obs.obs_enum_sources()
-  if sources is not None:
-    obs.obs_property_list_clear(list_property)
-    obs.obs_property_list_add_string(list_property, "", "")
-    for source in sources:
-      source_type = obs.obs_source_get_id(source)
-      if source_type in { "monitor_capture", "window_capture", "game_capture", "display_capture" }:
-          name = obs.obs_source_get_name(source)
-          obs.obs_property_list_add_string(list_property, name, name)
-  obs.source_list_release(sources)
+    sources = obs.obs_enum_sources()
+    if sources is not None:
+        obs.obs_property_list_clear(list_property)
+        obs.obs_property_list_add_string(list_property, "", "")
+        for source in sources:
+          source_type = obs.obs_source_get_id(source)
+          if source_type in { "monitor_capture", "window_capture", "game_capture", "display_capture" }:
+              name = obs.obs_source_get_name(source)
+              obs.obs_property_list_add_string(list_property, name, name)
+    obs.source_list_release(sources)
 
 
 def script_properties():
