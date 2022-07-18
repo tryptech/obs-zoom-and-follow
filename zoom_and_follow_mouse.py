@@ -329,6 +329,19 @@ def script_update(settings):
     zoom.s_y_override = obs.obs_data_get_int(settings, "Manual Y Offset")
 
 
+def populate_list_property_with_source_names(list_property):
+  sources = obs.obs_enum_sources()
+  if sources is not None:
+    obs.obs_property_list_clear(list_property)
+    obs.obs_property_list_add_string(list_property, "", "")
+    for source in sources:
+      source_type = obs.obs_source_get_id(source)
+      if source_type in { "monitor_capture", "window_capture", "game_capture", "display_capture" }:
+          name = obs.obs_source_get_name(source)
+          obs.obs_property_list_add_string(list_property, name, name)
+  obs.source_list_release(sources)
+
+
 def script_properties():
     props = obs.obs_properties_create()
 
@@ -336,18 +349,13 @@ def script_properties():
         props,
         "source",
         "Zoom Source",
-        obs.OBS_COMBO_TYPE_EDITABLE,
+        obs.OBS_COMBO_TYPE_LIST,
         obs.OBS_COMBO_FORMAT_STRING,
     )
+    populate_list_property_with_source_names(p)
 
-    sources = obs.obs_enum_sources()
-    if sources is not None:
-        for source in sources:
-            source_type = obs.obs_source_get_id(source)
-            if source_type in { "monitor_capture", "window_capture", "game_capture", "display_capture" }:
-                name = obs.obs_source_get_name(source)
-                obs.obs_property_list_add_string(p, name, name)
-    obs.source_list_release(sources)
+    obs.obs_properties_add_button(props, "Refresh", "Refresh list of sources",
+    lambda props,prop: True if populate_list_property_with_source_names(p) else True)
 
     obs.obs_properties_add_int(props, "Manual X Offset", "Manual X Offset", -8000, 8000, 1)
     obs.obs_properties_add_int(props, "Manual Y Offset", "Manual Y Offset", -8000, 8000, 1)
