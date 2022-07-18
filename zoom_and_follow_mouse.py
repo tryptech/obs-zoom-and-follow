@@ -2,6 +2,7 @@ import obspython as obs
 import pywinctl as pwc # version >=0.0.38
 from math import sqrt
 from json import loads
+from collections import namedtuple
 
 c = pwc.getMousePos
 get_position = lambda: [c().x, c().y]
@@ -66,11 +67,10 @@ class CursorWindow:
                 self.s_y = window_dim.top
 
     def update_monitor_dim(self, monitor):
-        self.d_w = monitor['size'].width
-        self.d_h = monitor['size'].height
-        self.s_x = monitor['pos'].x
-        self.s_y = monitor['pos'].y
-
+        self.d_w = monitor[1]['size'].width
+        self.d_h = monitor[1]['size'].height
+        self.s_x = monitor[1]['pos'].x
+        self.s_y = monitor[1]['pos'].y
 
     def update_source_size(self):
         data = loads(obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name))))
@@ -92,7 +92,7 @@ class CursorWindow:
                 print(f"Key 'monitor' does not exist in {data}")
             else:
                 for monitor in self.monitors.items():
-                    if (monitor['id'] == monitor_id):
+                    if (monitor[1]['id'] == monitor_id):
                         self.update_monitor_dim(monitor)
         elif (self.source_type == 'display_capture'):
             # the 'display' property is an index value and not the true monitor id. 
