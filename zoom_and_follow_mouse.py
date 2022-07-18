@@ -1,5 +1,5 @@
 import obspython as obs 
-import pywinctl as pwc # version >=0.0.30
+import pywinctl as pwc # version >=0.0.38
 from math import sqrt
 from json import loads
 
@@ -24,7 +24,7 @@ class CursorWindow:
     lock = True
     track = True
     windows = ''
-    window = ''
+    window = None
     monitors = pwc.getAllScreens()
     monitors_key = list(dict.keys(monitors))
     monitor = ''
@@ -52,39 +52,56 @@ class CursorWindow:
         self.monitors_key = list(dict.keys(self.monitors))
 
     def update_window_dim(self):
-        if (self.source_type == 'window_capture') or (self.source_type == 'game_capture'):
+        if self.window != None:
+            # FIXME: on macos get window bounds results in an error and does not work
+            # NSInternalInconsistencyException - NSWindow drag regions should only be invalidated on the Main Thread!
             window_dim = self.window.getClientFrame()
-            if (window_dim.right - window_dim.left != self.d_w) and (window_dim.bottom - window_dim.top != self.d_h) and (window_dim.left != self.s_x) and (window_dim.top != self.s_y):
+            if ((window_dim.right - window_dim.left != self.d_w) and 
+                (window_dim.bottom - window_dim.top != self.d_h) and 
+                (window_dim.left != self.s_x) and 
+                (window_dim.top != self.s_y)):
                 self.d_w = window_dim.right - window_dim.left
                 self.d_h = window_dim.bottom - window_dim.top
                 self.s_x = window_dim.left
                 self.s_y = window_dim.top
 
-    def update_monitor_dim(self, monitor, id):
-        if (monitor['id'] == id):
-            self.d_w = monitor['size'].width
-            self.d_h = monitor['size'].height
-            self.s_x = monitor['pos'].x
-            self.s_y = monitor['pos'].y
+    def update_monitor_dim(self, monitor):
+        self.d_w = monitor['size'].width
+        self.d_h = monitor['size'].height
+        self.s_x = monitor['pos'].x
+        self.s_y = monitor['pos'].y
 
 
     def update_source_size(self):
-        data = obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name)))
+        data = loads(obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name))))
         self.source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(self.source_name))
-        if (self.source_type == 'window_capture') or (self.source_type == 'game_capture'):
-            data = loads(data)['window'].split(":")
-            self.window = pwc.getWindowsWithTitle(self.windows[data[2]][0])[0]
+        self.window = None
+        if (self.source_type in { 'window_capture', 'game_capture' }):
+            if 'window_name' in data: # macos has a 'window_name' property that windows does not have
+                # pywinctl does not report application windows correctly for macos yet, so we must capture based on
+                # the actual window name and not based on the application like we do for windows.
+                window_name = data.get('window_name')
+            elif 'window' in data: # windows and linux
+                application_name = data['window'].split(":")[2]
+                window_name = self.windows[application_name][0]
+            self.window = pwc.getWindowsWithTitle(window_name)[0]
             self.update_window_dim()
-        elif (self.source_type == 'monitor_capture'): 
-            try:
-                data = loads(data)['monitor']
-            except:
-                print("Key 'monitor' does not exist in data")
-                print(loads(data))
+        elif (self.source_type == 'monitor_capture'):
+            monitor_id = data.get('monitor', None)
+            if monitor_id == None:
+                print(f"Key 'monitor' does not exist in {data}")
             else:
-                for i in range(len(self.monitors_key)):
-                    monitor = self.monitors[self.monitors_key[i]]
-                    self.update_monitor_dim(monitor, data)
+                for monitor in self.monitors.items():
+                    if (monitor['id'] == monitor_id):
+                        self.update_monitor_dim(monitor)
+        elif (self.source_type == 'display_capture'):
+            # the 'display' property is an index value and not the true monitor id. 
+            # it is only returned when there is more than one monitor on your system.
+            # we will assume that the order of the monitors returned from pywinctl 
+            # are  in the same order that OBS is assigning the display index value.
+            monitor_index = data.get('display', 0)
+            if (monitor_index < len(self.monitors)):
+                self.update_monitor_dim(self.monitors[self.monitors_key[monitor_index]])
         if (self.s_x_override > 0):
             self.s_x += self.s_x_override
         if (self.s_y_override > 0):
@@ -329,7 +346,7 @@ def script_properties():
     if sources is not None:
         for source in sources:
             source_type = obs.obs_source_get_id(source)
-            if source_type == "monitor_capture" or source_type == "window_capture" or source_type == "game_capture":
+            if source_type in { "monitor_capture", "window_capture", "game_capture", "display_capture" }:
                 name = obs.obs_source_get_name(source)
                 obs.obs_property_list_add_string(p, name, name)
     obs.source_list_release(sources)
