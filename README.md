@@ -2,7 +2,7 @@ Zoom and Follow
 ---------------
 
 
-*Currently refactoring under the **PyWinCtl** branch to consolidate dependencies, simplify use, and remove extraneous settings*
+*Currently refactoring under the **PyWinCtl** branch to consolidate dependencies, simplify use, and remove extraneous settings. If you have issues with the current version, please refer back to commit [a3c960e](https://github.com/tryptech/obs-zoom-and-follow/tree/a3c960e7c5488089fff892a6bdf9c5453094376d) to use an older version*
 
 Have you ever needed to zoom in on your screen to show some fine detail work, or to make your large 4k/ultrawide monitor less daunting? **Zoom and Follow** for OBS Studio does exactly that, zooms in on your mouse and follows it around. Configurable and low-impact, you can now do old school Camtasia zoom ***live***!
 
