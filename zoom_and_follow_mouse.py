@@ -62,7 +62,6 @@ class CursorWindow:
 
         :param monitor: Single monitor as returned from the PyWinCtl Monitor function getAllScreens()
         """
-        print("wut")
         self.dim_w = monitor[1]['size'].width
         self.dim_h = monitor[1]['size'].height
         self.source_x = monitor[1]['pos'].x
@@ -378,6 +377,7 @@ def script_update(settings):
     zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
     zoom.source_x_override = obs.obs_data_get_int(settings, "Manual X Offset")
     zoom.source_y_override = obs.obs_data_get_int(settings, "Manual Y Offset")
+    zoom.update_source_size()
 
 
 def populate_list_property_with_source_names(list_property):
