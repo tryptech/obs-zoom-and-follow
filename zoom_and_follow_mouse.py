@@ -51,14 +51,10 @@ class CursorWindow:
             # FIXME: on macos get window bounds results in an error and does not work
             # NSInternalInconsistencyException - NSWindow drag regions should only be invalidated on the Main Thread!
             window_dim = self.window.getClientFrame()
-            if ((window_dim.right - window_dim.left != self.dim_w) and 
-                (window_dim.bottom - window_dim.top != self.dim_h) and 
-                (window_dim.left != self.source_x) and 
-                (window_dim.top != self.source_y)):
-                self.dim_w = window_dim.right - window_dim.left
-                self.dim_h = window_dim.bottom - window_dim.top
-                self.source_x = window_dim.left
-                self.source_y = window_dim.top
+            self.dim_w = window_dim.right - window_dim.left
+            self.dim_h = window_dim.bottom - window_dim.top
+            self.source_x = window_dim.left
+            self.source_y = window_dim.top
 
     def update_monitor_dim(self, monitor):
         """
@@ -66,6 +62,7 @@ class CursorWindow:
 
         :param monitor: Single monitor as returned from the PyWinCtl Monitor function getAllScreens()
         """
+        print("wut")
         self.dim_w = monitor[1]['size'].width
         self.dim_h = monitor[1]['size'].height
         self.source_x = monitor[1]['pos'].x
@@ -85,11 +82,13 @@ class CursorWindow:
             self.window = None
             if (self.source_type in { 'window_capture', 'game_capture' }):
                 if 'window_name' in data:
+                    # Window capture for macOS
                     # macos has a 'window_name' property that windows does not have
                     # pywinctl does not report application windows correctly for macos yet, so we must capture based on
                     # the actual window name and not based on the application like we do for windows.
                     window_name = data.get('window_name')
-                elif 'window' in data: # windows and linux
+                elif 'window' in data:
+                    # Windows capture for Windows and Linux
                     application_name = data['window'].split(":")[2]
                     try:
                         window_name = self.windows[application_name][0]
@@ -151,10 +150,10 @@ class CursorWindow:
 
         :param arg1: Pivot value
         :param arg2: Checked value
-        :param smooth: Smoothing factor; larger values adjusts more aggressively 
+        :param smooth: Smoothing factor; larger values adjusts more smoothly 
         :return: Adjustment value
         """
-        result = round((arg1 - arg2) / smooth)
+        result = round((arg1 - arg2) / smooth + 1)
         return int(result)
 
     def follow(self, mousePos):
@@ -164,7 +163,7 @@ class CursorWindow:
         :param mousePos: [x,y] position of the mouse on the canvas of all connected displays
         :return: If the zoom window was moved
         """
-        self.update_window_dim()
+        self.update_source_size()
 
         track = False
 
@@ -207,6 +206,7 @@ class CursorWindow:
         # Set x and y zoom offset
         offset_x = offset_y = 0
         
+
         if x_o < zoom_edge_left:
             offset_x = self.check_offset(x_o, zoom_edge_left, smoothFactor)
             move = True
@@ -222,9 +222,9 @@ class CursorWindow:
             move = True
 
         # Max speed clamp
-        speedim_h = sqrt((offset_x**2)+(offset_y**2))
-        if (speedim_h > self.max_speed):
-            speed_factor = speedim_h/float(self.max_speed)
+        speed_h = sqrt((offset_x**2)+(offset_y**2))
+        if (speed_h > self.max_speed):
+            speed_factor = speed_h/float(self.max_speed)
             offset_x *= speed_factor
             offset_y *= speed_factor
 
@@ -357,6 +357,7 @@ def script_description():
 
 
 def script_defaults(settings):
+    obs.obs_data_set_default_string(settings, "source", "")
     obs.obs_data_set_default_int(settings, "Width", 1280)
     obs.obs_data_set_default_int(settings, "Height", 720)
     obs.obs_data_set_default_double(settings, "Border", 0.15)
@@ -368,9 +369,7 @@ def script_defaults(settings):
 
 
 def script_update(settings):
-    if zoom.source_name != obs.obs_data_get_string(settings, "source"):
-        zoom.source_name = obs.obs_data_get_string(settings, "source")
-        zoom.update_sources()
+    zoom.source_name = obs.obs_data_get_string(settings, "source")
     zoom.zoom_w = obs.obs_data_get_int(settings, "Width")
     zoom.zoom_h = obs.obs_data_get_int(settings, "Height")
     zoom.active_border = obs.obs_data_get_double(settings, "Border")
@@ -382,15 +381,16 @@ def script_update(settings):
 
 
 def populate_list_property_with_source_names(list_property):
+    zoom.update_sources()
     sources = obs.obs_enum_sources()
     if sources is not None:
         obs.obs_property_list_clear(list_property)
         obs.obs_property_list_add_string(list_property, "", "")
         for source in sources:
-          source_type = obs.obs_source_get_id(source)
-          if source_type in { "monitor_capture", "window_capture", "game_capture", "display_capture" }:
-              name = obs.obs_source_get_name(source)
-              obs.obs_property_list_add_string(list_property, name, name)
+            source_type = obs.obs_source_get_id(source)
+            if source_type in { "monitor_capture", "window_capture", "game_capture", "display_capture" }:
+                name = obs.obs_source_get_name(source)
+                obs.obs_property_list_add_string(list_property, name, name)
     obs.source_list_release(sources)
 
 
@@ -416,7 +416,7 @@ def script_properties():
     obs.obs_properties_add_int(props, "Height", "Zoom Window Height", 240, 3840, 1)
     obs.obs_properties_add_float_slider(props, "Border", "Active Border", 0, 0.5, 0.01)
     obs.obs_properties_add_int(props, "Speed", "Max Scroll Speed", 0, 540, 10)
-    obs.obs_properties_add_float_slider(props, "Smooth", "Smooth", 0, 10, 0.01)
+    obs.obs_properties_add_float_slider(props, "Smooth", "Smooth", 0, 10, 1.00)
     obs.obs_properties_add_int_slider(props, "Zoom", "Zoom Duration (ms)", 0, 1000, 1)
 
     return props

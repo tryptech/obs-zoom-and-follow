@@ -18,6 +18,7 @@ Install
 - Install Python 3 (3.6.8 for Windows, that's what OBS works with)
 - [Install PyWinCtl](https://github.com/Kalmat/PyWinCtl#install) (Make sure it is the latest version)
 - Add `zoom_and_follow_mouse.py` as an OBS script
+- Add the Python folder in the "Scripts Windows" > "Python Settings" tab
 
 How to Use
 ----------
