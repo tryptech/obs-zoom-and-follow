@@ -26,7 +26,7 @@ How to Use
 - Setup a hotkey for "Enable/Disable Mouse Follow"
 - Select a source to zoom into as part of the script settings
 - Configure the size of the zoom window
-- Edit the bounding box settings for the source in it's "Edit Transform" menu
+- Edit the bounding box settings for the source in it's "Edit Transform" menu, usually to ***Stretch to inner bounds***
 - Use Zoom hotkey to zoom in to the source
 
 If there are any issues after changing any scenes/sources, reload the script
