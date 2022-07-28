@@ -47,7 +47,7 @@ class CursorWindow:
 
         :param window: Window with new dimensions
         """
-        print("Updating stored window dimensions to match window's current dimensions")
+        print("Updating stored dimensions to match window's current dimensions")
         print("OLD")
         print("Width, Height, X, Y")
         print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
