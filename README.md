@@ -16,9 +16,9 @@ Dependencies
 Install
 -------
 - Install Python 3 (3.6.8 for Windows, that's what OBS works with)
-- [Install PyWinCtl](https://github.com/Kalmat/PyWinCtl#install) (Make sure it is the latest version)
+- Install [PyWinCtl](https://github.com/Kalmat/PyWinCtl#install)  under the correct version of Python 
 - Add `zoom_and_follow_mouse.py` as an OBS script
-- Add the Python folder in the "Scripts Windows" > "Python Settings" tab
+- Add the Python folder in the "Scripts" window > "Python Settings" tab
 
 How to Use
 ----------
@@ -31,7 +31,7 @@ How to Use
 
 If there are any issues after changing any scenes/sources, reload the script
 
-Set up zooms for different sources
+Set up zoom control for multiple sources
 ---
 Duplicate (and optionally rename) `zoom_and_follow_mouse.py`, add it as an OBS script, and follow the **How to Use** section with the duplicate copy.
 

@@ -7,6 +7,7 @@ c = pwc.getMousePos
 get_position = lambda: [c().x, c().y]
 zoom_id_tog = None
 follow_id_tog = None
+new_source = False
 ZOOM_NAME_TOG = "zoom.toggle"
 FOLLOW_NAME_TOG = "follow.toggle"
 ZOOM_DESC_TOG = "Enable/Disable Mouse Zoom"
@@ -16,15 +17,13 @@ USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
 
 # -------------------------------------------------------------------
 
-
 class CursorWindow:
     flag = lock = track = True
     zi_timer = zo_timer = 0
-    windows = monitor = ''
-    window = None
+    windows = window_titles = monitor = window = window_handle = window_name = ''
     monitors = pwc.getAllScreens()
     monitors_key = list(dict.keys(monitors))
-    dim_w = dim_h = source_x = source_y = zoom_x = zoom_y = source_x_override = source_y_override = 0
+    source_w = source_h = source_x = source_y = zoom_x = zoom_y = source_x_override = source_y_override = 0
     refresh_rate = int(obs.obs_get_frame_interval_ns()/1000000)
     source_name = source_type = ""
     zoom_w = 1280
@@ -37,24 +36,33 @@ class CursorWindow:
     def update_sources(self):
         """
         Update the list of Windows and Monitors from PyWinCtl
-    
         """
-        self.windows = pwc.getAllAppsWindowsTitles()
+        self.windows = pwc.getAllWindows()
         self.monitors = pwc.getAllScreens()
         self.monitors_key = list(dict.keys(self.monitors))
 
-    def update_window_dim(self):
+    def update_window_dim(self, window):
         """
-        Update the stored dimensions of the selected window
+        Update the stored window dimensions to those of the selected window
+
+        :param window: Window with new dimensions
         """
-        if self.window != None:
+        print("Updating stored window dimensions to match window's current dimensions")
+        print("OLD")
+        print("Width, Height, X, Y")
+        print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+        if window != None:
             # FIXME: on macos get window bounds results in an error and does not work
             # NSInternalInconsistencyException - NSWindow drag regions should only be invalidated on the Main Thread!
-            window_dim = self.window.getClientFrame()
-            self.dim_w = window_dim.right - window_dim.left
-            self.dim_h = window_dim.bottom - window_dim.top
+            window_dim = window.getClientFrame()
+            self.source_w = window_dim.right - window_dim.left
+            self.source_h = window_dim.bottom - window_dim.top
             self.source_x = window_dim.left
             self.source_y = window_dim.top
+        print("NEW")
+        print("Width, Height, X, Y")
+        print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+        
 
     def update_monitor_dim(self, monitor):
         """
@@ -62,45 +70,114 @@ class CursorWindow:
 
         :param monitor: Single monitor as returned from the PyWinCtl Monitor function getAllScreens()
         """
-        self.dim_w = monitor[1]['size'].width
-        self.dim_h = monitor[1]['size'].height
+        self.source_w = monitor[1]['size'].width
+        self.source_h = monitor[1]['size'].height
         self.source_x = monitor[1]['pos'].x
         self.source_y = monitor[1]['pos'].y
+
+    def source_init(self, source):
+        """
+        In the case of initial script launch, finds source.
+        """
+
 
     def update_source_size(self):
         """
         Adjusts the source size variables based on the source given
         """
-        try: # try to pull the data for the source object
+        global new_source
+
+        try:
+            # Try to pull the data for the source object
+            # OBS stores the monitor index/window target in the window/game/display sources settings
+            # Info is stored in a JSON format
+
             data = loads(obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name))))
-        except: # if it cannot be pulled, it is most likely because the source no longer exists
-            print("Source '" + self.source_name + "' does not exist. Please choose a different source")
-            self.source_name = ''
+        except:
+            # If it cannot be pulled, it is most likely one of the following: 
+            #   The source no longer exists
+            #   The source's name has changed
+            #   OBS does not have the sources loaded yet when launching the script on start
+
+            print("Source '" + self.source_name + "' not found.")
+            if len(self.window_name) == 0:
+                # OBS does not have the sources loaded yet when launching the script on start
+                self.source_name = ''
+            print(obs.obs_get_source_by_name(self.source_name))
         else:
+            # If the source data is pulled, it exists. Therefore other information must also exists
+            # Source Type is pulled to determine if the source is a display, game, or window
+
             self.source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(self.source_name))
-            self.window = None
+            print("Source Type: " + self.source_type)
+            #self.window = None
             if (self.source_type in { 'window_capture', 'game_capture' }):
+                window_match = ''
                 if 'window_name' in data:
                     # Window capture for macOS
                     # macos has a 'window_name' property that windows does not have
                     # pywinctl does not report application windows correctly for macos yet, so we must capture based on
                     # the actual window name and not based on the application like we do for windows.
-                    window_name = data.get('window_name')
+                    
+                    self.window_name = data.get('window_name')
                 elif 'window' in data:
+                    # TODO: More Linux testing, specifically with handles
                     # Windows capture for Windows and Linux
-                    application_name = data['window'].split(":")[2]
+                    # In Windows, application data is stored as "Title:WindowClass:Executable"
                     try:
-                        window_name = self.windows[application_name][0]
+                        # Assuming the OBS data is formatted correctly, we should be able to identify the window
+                        # If New Source/Init
+                        # If Handle Exists
+                        # Else
+                        if new_source:
+                            # If new source selected / OBS initialize
+                            # Build window, window_handle, and window_name
+                            print("New Source")
+                            print("Retrieving target window info from OBS")
+                            self.window_name = data['window'].split(":")[0]
+                            print(f"Searching for: {self.window_name}")
+                            for w in self.windows:
+                                if w.title == self.window_name:
+                                    window_match = w
+                                    self.window_handle = w.getHandle()
+                            new_source = False
+                            print(f"Window Match: {window_match.title}")
+                            print(f"Window Match Handle: {str(self.window_handle)}")
+                        if self.window_handle != '':
+                            # If window handle is already stored
+                            # Get window based on handle
+                            # Check if name needs changing
+                            print(f"Handle exists: {str(self.window_handle)}")
+                            handle_match = False
+                            for w in self.windows:
+                                if w.getHandle() == self.window_handle:
+                                    handle_match = True
+                                    print(f"Found Handle Match: {str(w.getHandle())}")
+                                    window_match = w
+                                    print(self.window)
+                                    if window_match.title != self.window:
+                                        print("Changing target title")
+                                        print(f"Old Title: {self.window_name}")                                    
+                                        self.window_name = w.title
+                                        print(f"New Title: {self.window_name}")
+                            if handle_match == False:
+                                # TODO: If the handle no longer exists, eg. Window or App closed
+                                raise
+                        else:
+                            print("I don't know how it gets here.")
+                            window_match = None
+                            # TODO: 
                     except:
-                        print(application_name + " doesn't exist")
-                        self.update_sources()
-                        window_name = self.windows[application_name][0]
-                self.window = pwc.getWindowsWithTitle(window_name)[0]
-                self.update_window_dim()
+                        print(f"Source {self.source_name} has changed. Select new source window")
+                        window_match = None
+                if window_match is not None:
+                    print("Proceeding to resize")
+                    self.window = pwc.getWindowsWithTitle(self.window_name)[0]
+                    self.update_window_dim(self.window)
             elif (self.source_type == 'monitor_capture'):
                 monitor_id = data.get('monitor', None)
                 if monitor_id == None:
-                    print("Key 'monitor' does not exist in {data}")
+                    print(f"Key 'monitor' does not exist in {data}")
                 else:
                     for monitor in self.monitors.items():
                         if (monitor[1]['id'] == monitor_id):
@@ -109,7 +186,7 @@ class CursorWindow:
                 # the 'display' property is an index value and not the true monitor id. 
                 # it is only returned when there is more than one monitor on your system.
                 # we will assume that the order of the monitors returned from pywinctl 
-                # are  in the same order that OBS is assigning the display index value.
+                # are in the same order that OBS is assigning the display index value.
                 monitor_index = data.get('display', 0)
                 if (monitor_index < len(self.monitors)):
                     self.update_monitor_dim(self.monitors[self.monitors_key[monitor_index]])
@@ -162,12 +239,10 @@ class CursorWindow:
         :param mousePos: [x,y] position of the mouse on the canvas of all connected displays
         :return: If the zoom window was moved
         """
-        self.update_source_size()
-
         track = False
 
-        if (mousePos[0] - (self.source_x + self.dim_w) < 0) and (mousePos[0] - self.source_x > 0):
-            if (mousePos[1] - (self.source_y + self.dim_h) < 0) and (mousePos[1] - self.source_y > 0):
+        if (mousePos[0] - (self.source_x + self.source_w) < 0) and (mousePos[0] - self.source_x > 0):
+            if (mousePos[1] - (self.source_y + self.source_h) < 0) and (mousePos[1] - self.source_y > 0):
                     track = True
 
         if not track:
@@ -240,12 +315,12 @@ class CursorWindow:
         """
         if self.zoom_x < 0:
             self.zoom_x = 0
-        elif self.zoom_x > self.dim_w - self.zoom_w:
-            self.zoom_x = self.dim_w - self.zoom_w
+        elif self.zoom_x > self.source_w - self.zoom_w:
+            self.zoom_x = self.source_w - self.zoom_w
         if self.zoom_y < 0:
             self.zoom_y = 0
-        elif self.zoom_y > self.dim_h - self.zoom_h:
-            self.zoom_y = self.dim_h - self.zoom_h
+        elif self.zoom_y > self.source_h - self.zoom_h:
+            self.zoom_y = self.source_h - self.zoom_h
 
     def set_crop(self, inOut):
         """
@@ -277,16 +352,16 @@ class CursorWindow:
                 i(s, "left", int(((1 - time) * self.zoom_x)))
                 i(s, "top", int(((1 - time) * self.zoom_y)))
                 i(
-                    s, "cx", self.zoom_w + int(time * (self.dim_w - self.zoom_w)),
+                    s, "cx", self.zoom_w + int(time * (self.source_w - self.zoom_w)),
                 )
                 i(
-                    s, "cy", self.zoom_h + int(time * (self.dim_h - self.zoom_h)),
+                    s, "cy", self.zoom_h + int(time * (self.source_h - self.zoom_h)),
                 )
             else:
                 i(s, "left", 0)
                 i(s, "top", 0)
-                i(s, "cx", self.dim_w)
-                i(s, "cy", self.dim_h)
+                i(s, "cx", self.source_w)
+                i(s, "cy", self.source_h)
         else:
             self.zo_timer = 0
             if self.zi_timer < totalFrames:
@@ -295,10 +370,10 @@ class CursorWindow:
                 i(s, "left", int(time * self.zoom_x))
                 i(s, "top", int(time * self.zoom_y))
                 i(
-                    s, "cx", self.dim_w - int(time * (self.dim_w - self.zoom_w)),
+                    s, "cx", self.source_w - int(time * (self.source_w - self.zoom_w)),
                 )
                 i(
-                    s, "cy", self.dim_h - int(time * (self.dim_h - self.zoom_h)),
+                    s, "cy", self.source_h - int(time * (self.source_h - self.zoom_h)),
                 )
             else:
                 i(s, "left", int(self.zoom_x))
@@ -368,7 +443,21 @@ def script_defaults(settings):
 
 
 def script_update(settings):
-    zoom.source_name = obs.obs_data_get_string(settings, "source")
+    global new_source
+
+    if zoom.source_name != obs.obs_data_get_string(settings, "source"):
+        zoom.source_name = obs.obs_data_get_string(settings, "source")
+        new_source = True
+    if new_source:
+        print("Source update")
+        zoom.update_sources()
+        sources = obs.obs_enum_sources()
+        if len(sources) == 0:
+            print("No sources, likely OBS startup.")
+    else:
+        zoom.update_source_size()
+        print("Non-initial update")
+    print("Source Name: " + zoom.source_name)
     zoom.zoom_w = obs.obs_data_get_int(settings, "Width")
     zoom.zoom_h = obs.obs_data_get_int(settings, "Height")
     zoom.active_border = obs.obs_data_get_double(settings, "Border")
@@ -377,10 +466,11 @@ def script_update(settings):
     zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
     zoom.source_x_override = obs.obs_data_get_int(settings, "Manual X Offset")
     zoom.source_y_override = obs.obs_data_get_int(settings, "Manual Y Offset")
-    zoom.update_source_size()
 
 
 def populate_list_property_with_source_names(list_property):
+    global new_source
+
     zoom.update_sources()
     sources = obs.obs_enum_sources()
     if sources is not None:
@@ -392,6 +482,8 @@ def populate_list_property_with_source_names(list_property):
                 name = obs.obs_source_get_name(source)
                 obs.obs_property_list_add_string(list_property, name, name)
     obs.source_list_release(sources)
+    new_source = True
+    print(f"New source: {str(new_source)}")
 
 
 def script_properties():
@@ -424,6 +516,7 @@ def script_properties():
 
 def script_load(settings):
     global zoom_id_tog
+
     zoom_id_tog = obs.obs_hotkey_register_frontend(
         ZOOM_NAME_TOG, ZOOM_DESC_TOG, toggle_zoom
     )
@@ -438,6 +531,7 @@ def script_load(settings):
     hotkey_save_array = obs.obs_data_get_array(settings, FOLLOW_NAME_TOG)
     obs.obs_hotkey_load(follow_id_tog, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
+    zoom.update_sources()
 
 
 def script_unload():
@@ -457,6 +551,8 @@ def script_save(settings):
 
 def toggle_zoom(pressed):
     if pressed:
+        if new_source:
+            zoom.update_sources()
         if zoom.source_name != "" and zoom.flag:
             zoom.update_source_size()
             obs.timer_add(zoom.tick, zoom.refresh_rate)
