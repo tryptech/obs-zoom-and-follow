@@ -62,7 +62,6 @@ class CursorWindow:
         print("NEW")
         print("Width, Height, X, Y")
         print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
-        
 
     def update_monitor_dim(self, monitor):
         """
@@ -74,12 +73,6 @@ class CursorWindow:
         self.source_h = monitor[1]['size'].height
         self.source_x = monitor[1]['pos'].x
         self.source_y = monitor[1]['pos'].y
-
-    def source_init(self, source):
-        """
-        In the case of initial script launch, finds source.
-        """
-
 
     def update_source_size(self):
         """
