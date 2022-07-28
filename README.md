@@ -1,10 +1,8 @@
 Zoom and Follow
 ---------------
+Have you ever needed to zoom in on your screen to show some fine detail work, or to make your large 4k/ultrawide monitor appear less daunting on stream? **Zoom and Follow** for OBS Studio does exactly that, zooms in on your mouse and follows it around. Configurable and low-impact, you can now do old school Camtasia zoom ***live***!
 
-
-*Currently refactoring under the **PyWinCtl** branch to consolidate dependencies, simplify use, and remove extraneous settings. If you have issues with the current version, please refer back to commit [a3c960e](https://github.com/tryptech/obs-zoom-and-follow/tree/a3c960e7c5488089fff892a6bdf9c5453094376d) to use an older version*
-
-Have you ever needed to zoom in on your screen to show some fine detail work, or to make your large 4k/ultrawide monitor less daunting? **Zoom and Follow** for OBS Studio does exactly that, zooms in on your mouse and follows it around. Configurable and low-impact, you can now do old school Camtasia zoom ***live***!
+*Maintained for the [current release version of OBS](https://github.com/obsproject/obs-studio/releases/latest)*
 
 *Inspired by [caharkness](https://obsproject.com/forum/members/caharkness.153928/)'s [Magic Window](https://obsproject.com/forum/threads/magic-window.107614/)*
 
@@ -16,20 +14,23 @@ Dependencies
 Install
 -------
 - Install Python 3 (3.6.8 for Windows, that's what OBS works with)
-- Install [PyWinCtl](https://github.com/Kalmat/PyWinCtl#install)  under the correct version of Python 
+
+  Make sure that you configure the correct version of Python within OBS in the "Scripts" window > "Python Settings" tab
+
+- Install [PyWinCtl](https://github.com/Kalmat/PyWinCtl#install)
+
+  Be sure to install to the Python version that OBS is using.
+
 - Add `zoom_and_follow_mouse.py` as an OBS script
-- Add the Python folder in the "Scripts" window > "Python Settings" tab
 
 How to Use
 ----------
-- Setup a hotkey for "Enable/Disable Mouse Zoom"
-- Setup a hotkey for "Enable/Disable Mouse Follow"
+- Setup a hotkey for ***Enable/Disable Mouse Zoom***
+- Setup a hotkey for ***Enable/Disable Mouse Follow***
 - Select a source to zoom into as part of the script settings
 - Configure the size of the zoom window
-- Edit the bounding box settings for the source in it's "Edit Transform" menu, usually to ***Stretch to inner bounds***
-- Use Zoom hotkey to zoom in to the source
-
-If there are any issues after changing any scenes/sources, reload the script
+- Edit the bounding box settings for the source in it's "Edit Transform" menu, usually to ***Stretch to inner bounds*** and your canvas size
+- Use ***Zoom*** hotkey to zoom in to the source
 
 Set up zoom control for multiple sources
 ---
