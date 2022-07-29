@@ -447,6 +447,7 @@ def script_description():
 def script_defaults(settings):
     obs.obs_data_set_default_string(settings, "source", "")
     obs.obs_data_set_default_bool(settings, "Manual Monitor Override", False)
+    obs.obs_data_set_default_bool(settings, "Manual Offset", False)
     obs.obs_data_set_default_int(settings, "Width", 1280)
     obs.obs_data_set_default_int(settings, "Height", 720)
     obs.obs_data_set_default_double(settings, "Border", 0.15)
