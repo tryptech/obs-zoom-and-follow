@@ -180,7 +180,11 @@ class CursorWindow:
                 # Else if no monitor ID, monitor does not exist
                 # Else search for the monitor and update
                 monitor_id = data.get('monitor', None)
-                if self.monitor_override is True:
+                if len(self.monitors.items()) == 1:
+                    print("Only one monitor detected. Forcing monitor override.")
+                    for monitor in self.monitors.items():
+                        self.update_monitor_dim(monitor)
+                elif self.monitor_override is True:
                     print(f"Monitor Override: {self.monitor_override}")
                     for monitor in self.monitors.items():
                         if monitor[0] == self.monitors_key[self.monitor_override_id]:
