@@ -645,6 +645,10 @@ def toggle_zoom(pressed):
         elif not zoom.flag:
             zoom.flag = True
             zoom.lock = False
+        print(f"Zoom: {zoom.lock}")
+        if zoom.lock:
+            print(f"Mouse position: {get_position()}")
+
 
 
 def toggle_follow(pressed):
@@ -653,3 +657,4 @@ def toggle_follow(pressed):
             zoom.track = False
         elif not zoom.track:
             zoom.track = True
+        print(f"Tracking: {zoom.track}")
