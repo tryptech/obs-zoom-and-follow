@@ -50,20 +50,23 @@ class CursorWindow:
         :param window: Window with new dimensions
         """
         print("Updating stored dimensions to match window's current dimensions")
-        print("OLD")
-        print("Width, Height, X, Y")
-        print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
         if window != None:
             # FIXME: on macos get window bounds results in an error and does not work
             # NSInternalInconsistencyException - NSWindow drag regions should only be invalidated on the Main Thread!
-            window_dim = window.getClientFrame()
-            self.source_w = window_dim.right - window_dim.left
-            self.source_h = window_dim.bottom - window_dim.top
-            self.source_x = window_dim.left
-            self.source_y = window_dim.top
-        print("NEW")
-        print("Width, Height, X, Y")
-        print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+            if self.source_w != window_dim.right - window_dim.left or self.source_h != window_dim.bottom - window_dim.top or self.source_x != window_dim.left or self.source_y != window_dim.top:    
+                print("OLD")
+                print("Width, Height, X, Y")
+                print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+                window_dim = window.getClientFrame()
+                self.source_w = window_dim.right - window_dim.left
+                self.source_h = window_dim.bottom - window_dim.top
+                self.source_x = window_dim.left
+                self.source_y = window_dim.top
+                print("NEW")
+                print("Width, Height, X, Y")
+                print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+            else:
+                print("Dimensions did not change")
 
     def update_monitor_dim(self, monitor):
         """
@@ -72,16 +75,19 @@ class CursorWindow:
         :param monitor: Single monitor as returned from the PyWinCtl Monitor function getAllScreens()
         """
         print("Updating stored dimensions to match selected monitor's dimensions")
-        print("OLD")
-        print("Width, Height, X, Y")
-        print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
-        self.source_w = monitor[1]['size'].width
-        self.source_h = monitor[1]['size'].height
-        self.source_x = monitor[1]['pos'].x
-        self.source_y = monitor[1]['pos'].y
-        print("NEW")
-        print("Width, Height, X, Y")
-        print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+        if self.source_w != monitor[1]['size'].width or self.source_h != monitor[1]['size'].height or self.source_x != monitor[1]['pos'].x or self.source_y != monitor[1]['pos'].y:    
+            print("OLD")
+            print("Width, Height, X, Y")
+            print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+            self.source_w = monitor[1]['size'].width
+            self.source_h = monitor[1]['size'].height
+            self.source_x = monitor[1]['pos'].x
+            self.source_y = monitor[1]['pos'].y
+            print("NEW")
+            print("Width, Height, X, Y")
+            print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+        else:
+            print("Dimensions did not change")
 
     def update_source_size(self):
         """
