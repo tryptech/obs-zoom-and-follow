@@ -13,7 +13,7 @@ Dependencies
 
 Install
 -------
-- Install Python 3 (3.6.8 for Windows, that's what OBS works with)
+- Install Python 3 (3.6.x for OBS version <28 for Windows and Mac OS, any Python 3 for OBS version 28+)
 
   Make sure that you configure the correct version of Python within OBS in the "Scripts" window > "Python Settings" tab
 

@@ -23,7 +23,7 @@ class CursorWindow:
     windows = window_titles = monitor = window = window_handle = window_name = ''
     monitors = pwc.getAllScreens()
     monitors_key = list(dict.keys(monitors))
-    monitor_override = manual_offset = False
+    monitor_override = manual_offset = monitor_size_override = False
     monitor_override_id = ''
     source_w = source_h = source_x = source_y = zoom_x = zoom_y = source_x_override = source_y_override = 0
     refresh_rate = int(obs.obs_get_frame_interval_ns()/1000000)
@@ -74,20 +74,26 @@ class CursorWindow:
 
         :param monitor: Single monitor as returned from the PyWinCtl Monitor function getAllScreens()
         """
-        print("Updating stored dimensions to match selected monitor's dimensions")
-        if self.source_w != monitor[1]['size'].width or self.source_h != monitor[1]['size'].height or self.source_x != monitor[1]['pos'].x or self.source_y != monitor[1]['pos'].y:    
-            print("OLD")
-            print("Width, Height, X, Y")
-            print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
-            self.source_w = monitor[1]['size'].width
-            self.source_h = monitor[1]['size'].height
-            self.source_x = monitor[1]['pos'].x
-            self.source_y = monitor[1]['pos'].y
-            print("NEW")
+        if self.monitor_size_override:
+            print("Manual monitor size enabled")
+            print("Dimensions set to:")
             print("Width, Height, X, Y")
             print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
         else:
-            print("Dimensions did not change")
+            print("Updating stored dimensions to match selected monitor's dimensions")
+            if self.source_w != monitor[1]['size'].width or self.source_h != monitor[1]['size'].height or self.source_x != monitor[1]['pos'].x or self.source_y != monitor[1]['pos'].y:    
+                print("OLD")
+                print("Width, Height, X, Y")
+                print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+                self.source_w = monitor[1]['size'].width
+                self.source_h = monitor[1]['size'].height
+                self.source_x = monitor[1]['pos'].x
+                self.source_y = monitor[1]['pos'].y
+                print("NEW")
+                print("Width, Height, X, Y")
+                print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+            else:
+                print("Dimensions did not change")
 
     def update_source_size(self):
         """
@@ -213,7 +219,7 @@ class CursorWindow:
                 print(f"Retrieving monitor {monitor_index}")
                 if (monitor_index < len(self.monitors)):
                     self.update_monitor_dim(self.monitors[self.monitors_key[monitor_index]])
-            if (self.manual_offset):
+            if (self.manual_offset or self.monitor_size_override):
                 self.source_x += self.source_x_override
                 self.source_y += self.source_y_override
 
@@ -301,7 +307,6 @@ class CursorWindow:
 
         # Set x and y zoom offset
         offset_x = offset_y = 0
-        
 
         if x_o < zoom_edge_left:
             offset_x = self.check_offset(x_o, zoom_edge_left, smoothFactor)
@@ -335,14 +340,16 @@ class CursorWindow:
         """
         Checks if zoom window exceeds window dimensions and clamps it if true
         """
-        if self.zoom_x < 0:
-            self.zoom_x = 0
-        elif self.zoom_x > self.source_w - self.zoom_w:
-            self.zoom_x = self.source_w - self.zoom_w
-        if self.zoom_y < 0:
-            self.zoom_y = 0
-        elif self.zoom_y > self.source_h - self.zoom_h:
-            self.zoom_y = self.source_h - self.zoom_h
+        [x_min, x_max, y_min, y_max] = [0, self.source_w - self.zoom_w, 0, self.source_h - self.zoom_h] if not self.monitor_size_override else [self.source_x_override, self.source_w - self.zoom_w + self.source_x_override, self.source_y_override, self.source_h - self.zoom_h +self.source_y_override]
+
+        if self.zoom_x < x_min:
+            self.zoom_x = x_min
+        elif self.zoom_x > x_max:
+            self.zoom_x = x_max
+        if self.zoom_y < y_min:
+            self.zoom_y = y_min
+        elif self.zoom_y > y_max:
+            self.zoom_y = y_max
 
     def set_crop(self, inOut):
         """
@@ -482,6 +489,10 @@ def script_update(settings):
     print("Source Name: " + zoom.source_name)
     zoom.monitor_override = obs.obs_data_get_bool(settings, "Manual Monitor Override")
     zoom.monitor_override_id = obs.obs_data_get_int(settings, "monitor")
+    zoom.monitor_size_override = obs.obs_data_get_bool(settings, "Manual Monitor Dim")
+    if zoom.monitor_size_override:
+        zoom.source_w = obs.obs_data_get_int(settings, "Monitor Width")
+        zoom.source_h = obs.obs_data_get_int(settings, "Monitor Height")
     zoom.manual_offset = obs.obs_data_get_bool(settings, "Manual Offset")
     zoom.zoom_w = obs.obs_data_get_int(settings, "Width")
     zoom.zoom_h = obs.obs_data_get_int(settings, "Height")
@@ -489,8 +500,12 @@ def script_update(settings):
     zoom.max_speed = obs.obs_data_get_int(settings, "Speed")
     zoom.smooth = obs.obs_data_get_double(settings, "Smooth")
     zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
-    zoom.source_x_override = obs.obs_data_get_int(settings, "Manual X Offset")
-    zoom.source_y_override = obs.obs_data_get_int(settings, "Manual Y Offset")
+    if zoom.monitor_size_override or zoom.manual_offset:
+        zoom.source_x_override = obs.obs_data_get_int(settings, "Manual X Offset")
+        zoom.source_y_override = obs.obs_data_get_int(settings, "Manual Y Offset")
+    else:
+        zoom.source_x_override = 0
+        zoom.source_y_override = 0
 
 
 def populate_list_property_with_source_names(list_property):
@@ -528,15 +543,20 @@ def populate_list_property_with_monitors(list_property):
 def callback(props, prop, *args):
     prop_name = obs.obs_property_name(prop)
     monitor_override = obs.obs_properties_get(props, "Manual Monitor Override")
+    monitor_size_override = obs.obs_properties_get(props, "Manual Monitor Dim")
     refresh_monitor = obs.obs_properties_get(props, "Refresh monitors")
     source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(zoom.source_name))
     if prop_name == "source":
         if source_type == 'monitor_capture':
             obs.obs_property_set_visible(monitor_override,True)
             obs.obs_property_set_visible(refresh_monitor,True)
+            obs.obs_property_set_visible(monitor_size_override,True)
         else:
             obs.obs_property_set_visible(monitor_override,False)
             obs.obs_property_set_visible(refresh_monitor,False)
+            obs.obs_property_set_visible(monitor_size_override,False)
+    obs.obs_property_set_visible(obs.obs_properties_get(props, "Monitor Width"), zoom.monitor_size_override)
+    obs.obs_property_set_visible(obs.obs_properties_get(props, "Monitor Height"), zoom.monitor_size_override)
     obs.obs_property_set_visible(obs.obs_properties_get(props, "Manual X Offset"), zoom.manual_offset)
     obs.obs_property_set_visible(obs.obs_properties_get(props, "Manual Y Offset"), zoom.manual_offset)
     monitor = obs.obs_properties_get(props, "monitor")
@@ -573,6 +593,11 @@ def script_properties():
     rm = obs.obs_properties_add_button(props, "Refresh monitors", "Refresh list of monitors",
     lambda props,prop: True if callback(props, p) else True)
 
+    mon_size = obs.obs_properties_add_bool(props, "Manual Monitor Dim", "Enable Manual Monitor Dimensions")
+
+    mon_w = obs.obs_properties_add_int(props, "Monitor Width", "Manual Monitor Width", -8000, 8000, 1)
+    mon_h = obs.obs_properties_add_int(props, "Monitor Height", "Manual Monitor Height", -8000, 8000, 1)
+
     offset = obs.obs_properties_add_bool(props, "Manual Offset", "Enable Manual Offset")
 
     mx = obs.obs_properties_add_int(props, "Manual X Offset", "Manual X Offset", -8000, 8000, 1)
@@ -584,16 +609,18 @@ def script_properties():
     obs.obs_properties_add_int(props, "Speed", "Max Scroll Speed", 0, 540, 10)
     obs.obs_properties_add_float_slider(props, "Smooth", "Smooth", 0, 10, 1.00)
     obs.obs_properties_add_int_slider(props, "Zoom", "Zoom Duration (ms)", 0, 1000, 1)
-    
 
     obs.obs_property_set_visible(monitor_override, False)
     obs.obs_property_set_visible(m, False)
     obs.obs_property_set_visible(rm, False)
+    obs.obs_property_set_visible(mon_h, False)
+    obs.obs_property_set_visible(mon_w, False)
     obs.obs_property_set_visible(mx, False)
     obs.obs_property_set_visible(my, False)
     
     obs.obs_property_set_modified_callback(p, callback)
     obs.obs_property_set_modified_callback(monitor_override, callback)
+    obs.obs_property_set_modified_callback(mon_size, callback)
     obs.obs_property_set_modified_callback(offset, callback)
     return props
 
