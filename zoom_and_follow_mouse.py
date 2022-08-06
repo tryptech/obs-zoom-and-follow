@@ -53,11 +53,11 @@ class CursorWindow:
         if window != None:
             # FIXME: on macos get window bounds results in an error and does not work
             # NSInternalInconsistencyException - NSWindow drag regions should only be invalidated on the Main Thread!
+            window_dim = window.getClientFrame()
             if self.source_w != window_dim.right - window_dim.left or self.source_h != window_dim.bottom - window_dim.top or self.source_x != window_dim.left or self.source_y != window_dim.top:    
                 print("OLD")
                 print("Width, Height, X, Y")
                 print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
-                window_dim = window.getClientFrame()
                 self.source_w = window_dim.right - window_dim.left
                 self.source_h = window_dim.bottom - window_dim.top
                 self.source_x = window_dim.left
