@@ -20,12 +20,14 @@ USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
 class CursorWindow:
     flag = lock = track = True
     zi_timer = zo_timer = 0
-    windows = window_titles = monitor = window = window_handle = window_name = ''
+    windows = window_titles = monitor = window = window_handle \
+        = window_name = ''
     monitors = pwc.getAllScreens()
     monitors_key = list(dict.keys(monitors))
     monitor_override = manual_offset = monitor_size_override = False
     monitor_override_id = ''
-    source_w = source_h = source_x = source_y = zoom_x = zoom_y = source_x_override = source_y_override = 0
+    source_w = source_h = source_x = source_y = zoom_x = zoom_y \
+        = source_x_override = source_y_override = 0
     refresh_rate = int(obs.obs_get_frame_interval_ns()/1000000)
     source_name = source_type = ''
     zoom_w = 1280
@@ -45,26 +47,34 @@ class CursorWindow:
 
     def update_window_dim(self, window):
         """
-        Update the stored window dimensions to those of the selected window
+        Update the stored window dimensions to those of the selected
+        window
 
         :param window: Window with new dimensions
         """
-        print("Updating stored dimensions to match window's current dimensions")
+        print("Updating stored dimensions to match current dimensions")
         if window != None:
-            # FIXME: on macos get window bounds results in an error and does not work
-            # NSInternalInconsistencyException - NSWindow drag regions should only be invalidated on the Main Thread!
+            # FIXME: on macos get window bounds results in an error and
+            # does not work
+            # NSInternalInconsistencyException - NSWindow drag regions
+            # should only be invalidated on the Main Thread!
             window_dim = window.getClientFrame()
-            if self.source_w != window_dim.right - window_dim.left or self.source_h != window_dim.bottom - window_dim.top or self.source_x != window_dim.left or self.source_y != window_dim.top:    
+            if (self.source_w != window_dim.right - window_dim.left
+                or self.source_h != window_dim.bottom - window_dim.top
+                or self.source_x != window_dim.left
+                or self.source_y != window_dim.top):    
                 print("OLD")
                 print("Width, Height, X, Y")
-                print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+                print(f"{self.source_w}, {self.source_h}, {self.source_x},"\
+                    f" {self.source_y}")
                 self.source_w = window_dim.right - window_dim.left
                 self.source_h = window_dim.bottom - window_dim.top
                 self.source_x = window_dim.left
                 self.source_y = window_dim.top
                 print("NEW")
                 print("Width, Height, X, Y")
-                print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+                print(f"{self.source_w}, {self.source_h}, {self.source_x},"\
+                    f" {self.source_y}")
             else:
                 print("Dimensions did not change")
 
@@ -72,26 +82,34 @@ class CursorWindow:
         """
         Update the stored dimensions based on the selected monitor
 
-        :param monitor: Single monitor as returned from the PyWinCtl Monitor function getAllScreens()
+        :param monitor: Single monitor as returned from the PyWinCtl
+            Monitor function getAllScreens()
         """
         if self.monitor_size_override:
             print("Manual monitor size enabled")
             print("Dimensions set to:")
             print("Width, Height, X, Y")
-            print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+            print(f"{self.source_w}, {self.source_h}, {self.source_x}, \
+                {self.source_y}")
         else:
-            print("Updating stored dimensions to match selected monitor's dimensions")
-            if self.source_w != monitor[1]['size'].width or self.source_h != monitor[1]['size'].height or self.source_x != monitor[1]['pos'].x or self.source_y != monitor[1]['pos'].y:    
+            print("Updating stored dimensions to match monitor's dimensions")
+            print(monitor)
+            if (self.source_w != monitor['size'].width
+                or self.source_h != monitor['size'].height
+                or self.source_x != monitor['pos'].x
+                or self.source_y != monitor['pos'].y):
                 print("OLD")
                 print("Width, Height, X, Y")
-                print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
-                self.source_w = monitor[1]['size'].width
-                self.source_h = monitor[1]['size'].height
-                self.source_x = monitor[1]['pos'].x
-                self.source_y = monitor[1]['pos'].y
+                print(f"{self.source_w}, {self.source_h}, {self.source_x}, \
+                    {self.source_y}")
+                self.source_w = monitor['size'].width
+                self.source_h = monitor['size'].height
+                self.source_x = monitor['pos'].x
+                self.source_y = monitor['pos'].y
                 print("NEW")
                 print("Width, Height, X, Y")
-                print(f"{self.source_w}, {self.source_h}, {self.source_x}, {self.source_y}")
+                print(f"{self.source_w}, {self.source_h}, {self.source_x}, \
+                    {self.source_y}")
             else:
                 print("Dimensions did not change")
 
@@ -103,48 +121,59 @@ class CursorWindow:
 
         try:
             # Try to pull the data for the source object
-            # OBS stores the monitor index/window target in the window/game/display sources settings
+            # OBS stores the monitor index/window target in the
+            # window/game/display sources settings
             # Info is stored in a JSON format
-
-            data = loads(obs.obs_data_get_json(obs.obs_source_get_settings(obs.obs_get_source_by_name(self.source_name))))
+            source = obs.obs_get_source_by_name(self.source_name)
+            source_settings = obs.obs_source_get_settings(source)
+            data = loads(obs.obs_data_get_json(source_settings))
         except:
-            # If it cannot be pulled, it is most likely one of the following: 
+            # If it cannot be pulled, it is likely one of the following:
             #   The source no longer exists
             #   The source's name has changed
-            #   OBS does not have the sources loaded yet when launching the script on start
+            #   OBS does not have the sources loaded yet when launching
+            #       the script on start
 
             print("Source '" + self.source_name + "' not found.")
             if len(self.window_name) == 0:
-                # OBS does not have the sources loaded yet when launching the script on start
+                # OBS does not have the sources loaded yet when
+                # launching the script on start
                 self.source_name = ''
             print(obs.obs_get_source_by_name(self.source_name))
         else:
-            # If the source data is pulled, it exists. Therefore other information must also exists
-            # Source Type is pulled to determine if the source is a display, game, or window
+            # If the source data is pulled, it exists. Therefore other
+            # information must also exists. Source Type is pulled to 
+            # determine if the source is a display, game, or window
 
-            self.source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(self.source_name))
+            self.source_type = obs.obs_source_get_id(source)
             print("Source Type: " + self.source_type)
             if (self.source_type in { 'window_capture', 'game_capture' }):
                 window_match = ''
                 if 'window_name' in data:
                     # Window capture for macOS
-                    # macos has a 'window_name' property that windows does not have
-                    # pywinctl does not report application windows correctly for macos yet, so we must capture based on
-                    # the actual window name and not based on the application like we do for windows.
+                    # macos uses an exclusive property 'window_name'
+                    # pywinctl does not report application windows
+                    # correctly for macos yet, so we must capture based
+                    # on the actual window name and not based on the
+                    # application like we do for windows.
                     
                     self.window_name = data.get('window_name')
                 elif 'window' in data:
-                    # TODO: More Linux testing, specifically with handles
+                    # TODO: More Linux testing, specifically with
+                    # handles
                     # Windows capture for Windows and Linux
-                    # In Windows, application data is stored as "Title:WindowClass:Executable"
+                    # In Windows, application data is stored as
+                    # "Title:WindowClass:Executable"
                     try:
-                        # Assuming the OBS data is formatted correctly, we should be able to identify the window
+                        # Assuming the OBS data is formatted correctly,
+                        # we should be able to identify the window
                         # If New Source/Init
                         # If Handle Exists
                         # Else
                         if new_source:
                             # If new source selected / OBS initialize
-                            # Build window, window_handle, and window_name
+                            # Build window, window_handle, and
+                            # window_name
                             print("New Source")
                             print("Retrieving target window info from OBS")
                             self.window_name = data['window'].split(":")[0]
@@ -155,7 +184,8 @@ class CursorWindow:
                                     self.window_handle = w.getHandle()
                             new_source = False
                             print(f"Window Match: {window_match.title}")
-                            print(f"Window Match Handle: {str(self.window_handle)}")
+                            print("Window Match Handle:"\
+                                f" {str(self.window_handle)}")
                         if self.window_handle != '':
                             # If window handle is already stored
                             # Get window based on handle
@@ -165,7 +195,8 @@ class CursorWindow:
                             for w in self.windows:
                                 if w.getHandle() == self.window_handle:
                                     handle_match = True
-                                    print(f"Found Handle Match: {str(w.getHandle())}")
+                                    print("Found Handle Match:"\
+                                        f" {str(w.getHandle())}")
                                     window_match = w
                                     print(self.window)
                                     if window_match.title != self.window:
@@ -174,14 +205,16 @@ class CursorWindow:
                                         self.window_name = w.title
                                         print(f"New Title: {self.window_name}")
                             if handle_match == False:
-                                # TODO: If the handle no longer exists, eg. Window or App closed
+                                # TODO: If the handle no longer exists,
+                                # eg. Window or App closed
                                 raise
                         else:
                             print("I don't know how it gets here.")
                             window_match = None
                             # TODO: 
                     except:
-                        print(f"Source {self.source_name} has changed. Select new source window")
+                        print(f"Source {self.source_name} has changed." \
+                            " Select new source window")
                         window_match = None
                 if window_match is not None:
                     print("Proceeding to resize")
@@ -193,33 +226,40 @@ class CursorWindow:
                 # Else search for the monitor and update
                 monitor_id = data.get('monitor', None)
                 if len(self.monitors.items()) == 1:
-                    print("Only one monitor detected. Forcing monitor override.")
+                    print("Only one monitor detected. Forcing override.")
                     for monitor in self.monitors.items():
-                        self.update_monitor_dim(monitor)
+                        self.update_monitor_dim(monitor[1])
                 elif self.monitor_override is True:
                     print(f"Monitor Override: {self.monitor_override}")
                     for monitor in self.monitors.items():
-                        if monitor[0] == self.monitors_key[self.monitor_override_id]:
-                            self.update_monitor_dim(monitor)
+                        if monitor[0] == self.monitors_key[
+                            self.monitor_override_id]:
+                            self.update_monitor_dim(monitor[1])
                 elif monitor_id == None:
                     print(f"Key 'monitor' does not exist in {data}")
                 else:
                     print(f"Searching for monitor {monitor_id}")
                     for monitor in self.monitors.items():
                         if (monitor[1]['id'] == monitor_id):
-                            print(f"Found monitor {monitor[1]['id']}")
+                            print(f"Found monitor {monitor['id']}")
                             print(monitor)
-                            self.update_monitor_dim(monitor)
+                            self.update_monitor_dim(monitor[1])
             elif (self.source_type == 'display_capture'):
-                # the 'display' property is an index value and not the true monitor id. 
-                # it is only returned when there is more than one monitor on your system.
-                # we will assume that the order of the monitors returned from pywinctl 
-                # are in the same order that OBS is assigning the display index value.
+                # The 'display' property is an index value and not the
+                # true monitor id. It is only returned when there is
+                # more than one monitor on your system. We will assume
+                # that the order of the monitors returned from pywinctl
+                # are in the same order that OBS is assigning the
+                # display index value.
                 monitor_index = data.get('display', 0)
                 print(f"Retrieving monitor {monitor_index}")
-                if (monitor_index < len(self.monitors)):
-                    self.update_monitor_dim(self.monitors[self.monitors_key[monitor_index]])
-            if (self.manual_offset or self.monitor_size_override):
+                for monitor in self.monitors.items():
+                    if (monitor['id'] == monitor_index):
+                        print(f"Found monitor {monitor['id']}")
+                        print(monitor)
+                        self.update_monitor_dim(monitor)
+            if (self.manual_offset
+                or self.monitor_size_override):
                 self.source_x += self.source_x_override
                 self.source_y += self.source_y_override
 
@@ -237,9 +277,11 @@ class CursorWindow:
 
     def cubic_in_out(self, p):
         """
-        Cubic in/out easing function. Accelerates until halfway, then decelerates.
+        Cubic in/out easing function. Accelerates until halfway, then
+        decelerates.
 
-        :param p: Linear temporal percent progress through easing from 0 to 1
+        :param p: Linear temporal percent progress through easing from
+            0 to 1
         :return: Adjusted percent progress
         """
         if p < 0.5:
@@ -250,11 +292,13 @@ class CursorWindow:
 
     def check_offset(self, arg1, arg2, smooth):
         """
-        Checks if a given value is offset from pivot value and provides an adjustment towards the pivot based on a smoothing factor
+        Checks if a given value is offset from pivot value and provides
+        an adjustment towards the pivot based on a smoothing factor
 
         :param arg1: Pivot value
         :param arg2: Checked value
-        :param smooth: Smoothing factor; larger values adjusts more smoothly 
+        :param smooth: Smoothing factor; larger values adjusts more
+            smoothly 
         :return: Adjustment value
         """
         result = round((arg1 - arg2) / smooth + 1)
@@ -264,13 +308,16 @@ class CursorWindow:
         """
         Updates the position of the zoom window.
 
-        :param mousePos: [x,y] position of the mouse on the canvas of all connected displays
+        :param mousePos: [x,y] position of the mouse on the canvas of
+            all connected displays
         :return: If the zoom window was moved
         """
         track = False
 
-        if (mousePos[0] - (self.source_x + self.source_w) < 0) and (mousePos[0] - self.source_x > 0):
-            if (mousePos[1] - (self.source_y + self.source_h) < 0) and (mousePos[1] - self.source_y > 0):
+        if ((mousePos[0] - (self.source_x + self.source_w) < 0)
+            and (mousePos[0] - self.source_x > 0)):
+            if ((mousePos[1] - (self.source_y + self.source_h) < 0)
+                and (mousePos[1] - self.source_y > 0)):
                     track = True
 
         if not track:
@@ -284,10 +331,16 @@ class CursorWindow:
         else:
             borderScale = self.zoom_w
         # Get active zone edges
-        zoom_edge_left = self.zoom_x + int(self.active_border * borderScale)
-        zoom_edge_right = self.zoom_x + self.zoom_w - int(self.active_border * borderScale)
-        zoom_edge_top = self.zoom_y + int(self.active_border * borderScale)
-        zoom_edge_bottom = self.zoom_y + self.zoom_h - int(self.active_border * borderScale)
+        zoom_edge_left = (  self.zoom_x
+                            + int(self.active_border * borderScale))
+        zoom_edge_right = ( self.zoom_x
+                            + self.zoom_w
+                            - int(self.active_border * borderScale))
+        zoom_edge_top = (   self.zoom_y
+                            + int(self.active_border * borderScale))
+        zoom_edge_bottom = (self.zoom_y
+                            + self.zoom_h
+                            - int(self.active_border * borderScale))
 
         # Clamp zone edges at center
         if zoom_edge_right < zoom_edge_left:
@@ -338,9 +391,19 @@ class CursorWindow:
 
     def check_pos(self):
         """
-        Checks if zoom window exceeds window dimensions and clamps it if true
+        Checks if zoom window exceeds window dimensions and clamps it if
+        true
         """
-        [x_min, x_max, y_min, y_max] = [0, self.source_w - self.zoom_w, 0, self.source_h - self.zoom_h] if not self.monitor_size_override else [self.source_x_override, self.source_w - self.zoom_w + self.source_x_override, self.source_y_override, self.source_h - self.zoom_h +self.source_y_override]
+        if not self.monitor_size_override:
+            x_min = 0
+            x_max = self.source_w - self.zoom_w
+            y_min = 0
+            y_max = self.source_h - self.zoom_h
+        else:
+            x_min = self.source_x_override
+            x_max = self.source_w - self.zoom_w + self.source_x_override
+            y_min = self.source_y_override
+            y_max = self.source_h - self.zoom_h + self.source_y_override
 
         if self.zoom_x < x_min:
             self.zoom_x = x_min
@@ -365,7 +428,8 @@ class CursorWindow:
         if crop is None:  # create filter
             _s = obs.obs_data_create()
             obs.obs_data_set_bool(_s, "relative", False)
-            f = obs.obs_source_create_private("crop_filter", "ZoomCrop", _s)
+            f = obs.obs_source_create_private("crop_filter",
+                "ZoomCrop", _s)
             obs.obs_source_filter_add(source, f)
             obs.obs_source_release(f)
             obs.obs_data_release(_s)
@@ -381,10 +445,14 @@ class CursorWindow:
                 i(s, "left", int(((1 - time) * self.zoom_x)))
                 i(s, "top", int(((1 - time) * self.zoom_y)))
                 i(
-                    s, "cx", self.zoom_w + int(time * (self.source_w - self.zoom_w)),
+                    s,
+                    "cx",
+                    self.zoom_w + int(time * (self.source_w - self.zoom_w)),
                 )
                 i(
-                    s, "cy", self.zoom_h + int(time * (self.source_h - self.zoom_h)),
+                    s,
+                    "cy",
+                    self.zoom_h + int(time * (self.source_h - self.zoom_h)),
                 )
             else:
                 i(s, "left", 0)
@@ -399,10 +467,14 @@ class CursorWindow:
                 i(s, "left", int(time * self.zoom_x))
                 i(s, "top", int(time * self.zoom_y))
                 i(
-                    s, "cx", self.source_w - int(time * (self.source_w - self.zoom_w)),
+                    s,
+                    "cx",
+                    self.source_w - int(time * (self.source_w - self.zoom_w)),
                 )
                 i(
-                    s, "cy", self.source_h - int(time * (self.source_h - self.zoom_h)),
+                    s,
+                    "cy",
+                    self.source_h - int(time * (self.source_h - self.zoom_h)),
                 )
             else:
                 i(s, "left", int(self.zoom_x))
@@ -449,17 +521,21 @@ zoom = CursorWindow()
 # -------------------------------------------------------------------
 def script_description():
     return (
-        "Crops and resizes a source to simulate a zoomed in tracked to the mouse.\n\n"
+        "Crops and resizes a source to simulate a zoomed in tracked to"\
+            " the mouse.\n\n"
         + "Set activation hotkey in Settings.\n\n"
-        + "Active Border enables lazy tracking; border size calculated as percent of smallest dimension. "
-        + "Border of 50% keeps mouse locked in the center of the zoom frame\n\n"
+        + "Active Border enables lazy tracking; border size calculated"\
+            " as percent of smallest dimension. "
+        + "Border of 50% keeps mouse locked in the center of the zoom"\
+            " frame\n\n"
         + "By tryptech (@yo_tryptech / tryptech#1112)"
     )
 
 
 def script_defaults(settings):
     obs.obs_data_set_default_string(settings, "source", "")
-    obs.obs_data_set_default_bool(settings, "Manual Monitor Override", False)
+    obs.obs_data_set_default_bool(settings, 
+        "Manual Monitor Override", False)
     obs.obs_data_set_default_bool(settings, "Manual Offset", False)
     obs.obs_data_set_default_int(settings, "Width", 1280)
     obs.obs_data_set_default_int(settings, "Height", 720)
@@ -487,9 +563,11 @@ def script_update(settings):
         zoom.update_source_size()
         print("Non-initial update")
     print("Source Name: " + zoom.source_name)
-    zoom.monitor_override = obs.obs_data_get_bool(settings, "Manual Monitor Override")
+    zoom.monitor_override = obs.obs_data_get_bool(settings,
+        "Manual Monitor Override")
     zoom.monitor_override_id = obs.obs_data_get_int(settings, "monitor")
-    zoom.monitor_size_override = obs.obs_data_get_bool(settings, "Manual Monitor Dim")
+    zoom.monitor_size_override = obs.obs_data_get_bool(settings,
+        "Manual Monitor Dim")
     if zoom.monitor_size_override:
         zoom.source_w = obs.obs_data_get_int(settings, "Monitor Width")
         zoom.source_h = obs.obs_data_get_int(settings, "Monitor Height")
@@ -501,8 +579,10 @@ def script_update(settings):
     zoom.smooth = obs.obs_data_get_double(settings, "Smooth")
     zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
     if zoom.monitor_size_override or zoom.manual_offset:
-        zoom.source_x_override = obs.obs_data_get_int(settings, "Manual X Offset")
-        zoom.source_y_override = obs.obs_data_get_int(settings, "Manual Y Offset")
+        zoom.source_x_override = obs.obs_data_get_int(settings,
+            "Manual X Offset")
+        zoom.source_y_override = obs.obs_data_get_int(settings,
+            "Manual Y Offset")
     else:
         zoom.source_x_override = 0
         zoom.source_y_override = 0
@@ -519,7 +599,8 @@ def populate_list_property_with_source_names(list_property):
         obs.obs_property_list_add_string(list_property, "", "")
         for source in sources:
             source_type = obs.obs_source_get_id(source)
-            if source_type in { "monitor_capture", "window_capture", "game_capture", "display_capture" }:
+            if source_type in { "monitor_capture", "window_capture",
+                "game_capture", "display_capture" }:
                 name = obs.obs_source_get_name(source)
                 obs.obs_property_list_add_string(list_property, name, name)
     obs.source_list_release(sources)
@@ -535,7 +616,9 @@ def populate_list_property_with_monitors(list_property):
         monitor_index = 0
         for monitor in zoom.monitors:
             screen_size = pwc.getScreenSize(monitor)
-            obs.obs_property_list_add_int(list_property,f"{monitor}: {screen_size.width} x {screen_size.height}", monitor_index)
+            obs.obs_property_list_add_int(list_property,
+                f"{monitor}: {screen_size.width} x {screen_size.height}",
+                monitor_index)
             monitor_index += 1
     print("Monitor override list updated")
 
@@ -545,7 +628,8 @@ def callback(props, prop, *args):
     monitor_override = obs.obs_properties_get(props, "Manual Monitor Override")
     monitor_size_override = obs.obs_properties_get(props, "Manual Monitor Dim")
     refresh_monitor = obs.obs_properties_get(props, "Refresh monitors")
-    source_type = obs.obs_source_get_id(obs.obs_get_source_by_name(zoom.source_name))
+    source = obs.obs_get_source_by_name(zoom.source_name)
+    source_type = obs.obs_source_get_id(source)
     if prop_name == "source":
         if source_type == 'monitor_capture':
             obs.obs_property_set_visible(monitor_override,True)
@@ -555,12 +639,21 @@ def callback(props, prop, *args):
             obs.obs_property_set_visible(monitor_override,False)
             obs.obs_property_set_visible(refresh_monitor,False)
             obs.obs_property_set_visible(monitor_size_override,False)
-    obs.obs_property_set_visible(obs.obs_properties_get(props, "Monitor Width"), zoom.monitor_size_override)
-    obs.obs_property_set_visible(obs.obs_properties_get(props, "Monitor Height"), zoom.monitor_size_override)
-    obs.obs_property_set_visible(obs.obs_properties_get(props, "Manual X Offset"), zoom.manual_offset)
-    obs.obs_property_set_visible(obs.obs_properties_get(props, "Manual Y Offset"), zoom.manual_offset)
+    obs.obs_property_set_visible(
+        obs.obs_properties_get(props, "Monitor Width"),
+        zoom.monitor_size_override)
+    obs.obs_property_set_visible(
+        obs.obs_properties_get(props, "Monitor Height"),
+        zoom.monitor_size_override)
+    obs.obs_property_set_visible(
+        obs.obs_properties_get(props, "Manual X Offset"),
+        zoom.manual_offset)
+    obs.obs_property_set_visible(
+        obs.obs_properties_get(props, "Manual Y Offset"),
+        zoom.manual_offset)
     monitor = obs.obs_properties_get(props, "monitor")
-    obs.obs_property_set_visible(monitor,zoom.monitor_override and obs.obs_property_visible(monitor_override))
+    obs.obs_property_set_visible(monitor,zoom.monitor_override
+        and obs.obs_property_visible(monitor_override))
     return True
 
 
@@ -576,10 +669,12 @@ def script_properties():
     )
     populate_list_property_with_source_names(p)
 
-    obs.obs_properties_add_button(props, "Refresh sources", "Refresh list of sources",
+    obs.obs_properties_add_button(props, "Refresh sources",
+        "Refresh list of sources",
     lambda props,prop: True if callback(props, p) else True)
     
-    monitor_override = obs.obs_properties_add_bool(props, "Manual Monitor Override", "Enable Monitor Override");
+    monitor_override = obs.obs_properties_add_bool(props,
+        "Manual Monitor Override", "Enable Monitor Override")
     
     m = obs.obs_properties_add_list(
         props,
@@ -590,25 +685,38 @@ def script_properties():
     )
     populate_list_property_with_monitors(m)
 
-    rm = obs.obs_properties_add_button(props, "Refresh monitors", "Refresh list of monitors",
-    lambda props,prop: True if callback(props, p) else True)
+    rm = obs.obs_properties_add_button(props,
+        "Refresh monitors", "Refresh list of monitors", lambda props,
+        prop: True if callback(props, p) else True)
 
-    mon_size = obs.obs_properties_add_bool(props, "Manual Monitor Dim", "Enable Manual Monitor Dimensions")
+    mon_size = obs.obs_properties_add_bool(props,
+        "Manual Monitor Dim", "Enable Manual Monitor Dimensions")
 
-    mon_w = obs.obs_properties_add_int(props, "Monitor Width", "Manual Monitor Width", -8000, 8000, 1)
-    mon_h = obs.obs_properties_add_int(props, "Monitor Height", "Manual Monitor Height", -8000, 8000, 1)
+    mon_w = obs.obs_properties_add_int(props,
+        "Monitor Width", "Manual Monitor Width", -8000, 8000, 1)
+    mon_h = obs.obs_properties_add_int(props,
+        "Monitor Height", "Manual Monitor Height", -8000, 8000, 1)
 
-    offset = obs.obs_properties_add_bool(props, "Manual Offset", "Enable Manual Offset")
+    offset = obs.obs_properties_add_bool(props,
+        "Manual Offset", "Enable Manual Offset")
 
-    mx = obs.obs_properties_add_int(props, "Manual X Offset", "Manual X Offset", -8000, 8000, 1)
-    my = obs.obs_properties_add_int(props, "Manual Y Offset", "Manual Y Offset", -8000, 8000, 1)
+    mx = obs.obs_properties_add_int(props,
+        "Manual X Offset", "Manual X Offset", -8000, 8000, 1)
+    my = obs.obs_properties_add_int(props,
+        "Manual Y Offset", "Manual Y Offset", -8000, 8000, 1)
 
-    obs.obs_properties_add_int(props, "Width", "Zoom Window Width", 320, 3840, 1)
-    obs.obs_properties_add_int(props, "Height", "Zoom Window Height", 240, 3840, 1)
-    obs.obs_properties_add_float_slider(props, "Border", "Active Border", 0, 0.5, 0.01)
-    obs.obs_properties_add_int(props, "Speed", "Max Scroll Speed", 0, 540, 10)
-    obs.obs_properties_add_float_slider(props, "Smooth", "Smooth", 0, 10, 1.00)
-    obs.obs_properties_add_int_slider(props, "Zoom", "Zoom Duration (ms)", 0, 1000, 1)
+    obs.obs_properties_add_int(props,
+        "Width", "Zoom Window Width", 320, 3840, 1)
+    obs.obs_properties_add_int(props,
+        "Height", "Zoom Window Height", 240, 3840, 1)
+    obs.obs_properties_add_float_slider(props,
+        "Border", "Active Border", 0, 0.5, 0.01)
+    obs.obs_properties_add_int(props,
+        "Speed", "Max Scroll Speed", 0, 540, 10)
+    obs.obs_properties_add_float_slider(props,
+        "Smooth", "Smooth", 0, 10, 1.00)
+    obs.obs_properties_add_int_slider(props,
+        "Zoom", "Zoom Duration (ms)", 0, 1000, 1)
 
     obs.obs_property_set_visible(monitor_override, False)
     obs.obs_property_set_visible(m, False)
