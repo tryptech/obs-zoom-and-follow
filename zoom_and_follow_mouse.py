@@ -89,6 +89,8 @@ class CursorWindow:
             print("Manual monitor size enabled")
             print("Dimensions set to:")
             print("Width, Height, X, Y")
+            self.source_x = monitor['pos'].x
+            self.source_y = monitor['pos'].y
             print(f"{self.source_w}, {self.source_h}, {self.source_x}, \
                 {self.source_y}")
         else:
@@ -112,6 +114,119 @@ class CursorWindow:
                     {self.source_y}")
             else:
                 print("Dimensions did not change")
+
+    def window_capture_mac(self, data):
+        """
+        Window capture for macOS
+        macos uses an exclusive property 'window_name' pywinctl does not
+        report application windows correctly for macos yet, so we must
+        capture based on the actual window name and not based on the
+        application like we do for windows.
+        """
+                    
+        self.window_name = data.get('window_name')
+
+    def monitor_capture_mac(self, data):
+        """
+        The 'display' property is an index value and not the true
+        monitor id. It is only returned when there is more than one
+        monitor on your system. We will assume that the order of the
+        monitors returned from pywinctl are in the same order that OBS
+        is assigning the display index value.
+        """
+        monitor_index = data.get('display', 0)
+        print(f"Retrieving monitor {monitor_index}")
+        for monitor in self.monitors.items():
+            if (monitor['id'] == monitor_index):
+                print(f"Found monitor {monitor['id']}")
+                print(monitor)
+                self.update_monitor_dim(monitor)
+
+    def window_capture_gen(self, data):
+        """
+        TODO: More Linux testing, specifically with handles Windows
+        capture for Windows and Linux. In Windows, application data is
+        stored as "Title:WindowClass:Executable"
+        """
+        try:
+            # Assuming the OBS data is formatted correctly, we should
+            # be able to identify the window
+            # If New Source/Init
+            # If Handle Exists
+            # Else
+            if new_source:
+                # If new source selected / OBS initialize
+                # Build window, window_handle, and
+                # window_name
+                print("New Source")
+                print("Retrieving target window info from OBS")
+                self.window_name = data['window'].split(":")[0]
+                print(f"Searching for: {self.window_name}")
+                for w in self.windows:
+                    if w.title == self.window_name:
+                        window_match = w
+                        self.window_handle = w.getHandle()
+                new_source = False
+                print(f"Window Match: {window_match.title}")
+                print("Window Match Handle:"\
+                    f" {str(self.window_handle)}")
+            if self.window_handle != '':
+                # If window handle is already stored
+                # Get window based on handle
+                # Check if name needs changing
+                print(f"Handle exists: {str(self.window_handle)}")
+                handle_match = False
+                for w in self.windows:
+                    if w.getHandle() == self.window_handle:
+                        handle_match = True
+                        print("Found Handle:"f" {str(w.getHandle())}")
+                        window_match = w
+                        print(self.window)
+                        if window_match.title != self.window:
+                            print("Changing target title")
+                            print(f"Old Title: {self.window_name}")
+                            self.window_name = w.title
+                            print(f"New Title: {self.window_name}")
+                if handle_match == False:
+                    # TODO: If the handle no longer exists,
+                    # eg. Window or App closed
+                    raise
+            else:
+                print("I don't know how it gets here.")
+                window_match = None
+                # TODO: 
+        except:
+            print(f"Source {self.source_name} has changed." \
+                " Select new source window")
+            window_match = None
+        return window_match
+
+    def monitor_capture_gen(self, data):
+        """
+        If monitor override, update with monitor override
+        Else if no monitor ID, monitor does not exist
+        Else search for the monitor and update
+        """
+        monitor_id = data.get('monitor', None)
+        if len(self.monitors.items()) == 1:
+            print("Only one monitor detected. Forcing override.")
+            for monitor in self.monitors.items():
+                self.update_monitor_dim(monitor[1])
+        elif self.monitor_override is True:
+            print(f"Monitor Override: {self.monitor_override}")
+            for monitor in self.monitors.items():
+                if monitor[0] == self.monitors_key[
+                    self.monitor_override_id]:
+                    self.update_monitor_dim(monitor[1])
+        elif monitor_id == None:
+            print(f"Key 'monitor' does not exist in {data}")
+        else:
+            print(f"Searching for monitor {monitor_id}")
+            for monitor in self.monitors.items():
+                if (monitor[1]['id'] == monitor_id):
+                    print(f"Found monitor {monitor['id']}")
+                    print(monitor)
+                    self.update_monitor_dim(monitor[1])
 
     def update_source_size(self):
         """
@@ -147,117 +262,20 @@ class CursorWindow:
 
             self.source_type = obs.obs_source_get_id(source)
             print("Source Type: " + self.source_type)
-            if (self.source_type in { 'window_capture', 'game_capture' }):
+            if (self.source_type in { 'window_capture','game_capture' }):
                 window_match = ''
                 if 'window_name' in data:
-                    # Window capture for macOS
-                    # macos uses an exclusive property 'window_name'
-                    # pywinctl does not report application windows
-                    # correctly for macos yet, so we must capture based
-                    # on the actual window name and not based on the
-                    # application like we do for windows.
-                    
-                    self.window_name = data.get('window_name')
+                    self.window_capture_mac(data)
                 elif 'window' in data:
-                    # TODO: More Linux testing, specifically with
-                    # handles
-                    # Windows capture for Windows and Linux
-                    # In Windows, application data is stored as
-                    # "Title:WindowClass:Executable"
-                    try:
-                        # Assuming the OBS data is formatted correctly,
-                        # we should be able to identify the window
-                        # If New Source/Init
-                        # If Handle Exists
-                        # Else
-                        if new_source:
-                            # If new source selected / OBS initialize
-                            # Build window, window_handle, and
-                            # window_name
-                            print("New Source")
-                            print("Retrieving target window info from OBS")
-                            self.window_name = data['window'].split(":")[0]
-                            print(f"Searching for: {self.window_name}")
-                            for w in self.windows:
-                                if w.title == self.window_name:
-                                    window_match = w
-                                    self.window_handle = w.getHandle()
-                            new_source = False
-                            print(f"Window Match: {window_match.title}")
-                            print("Window Match Handle:"\
-                                f" {str(self.window_handle)}")
-                        if self.window_handle != '':
-                            # If window handle is already stored
-                            # Get window based on handle
-                            # Check if name needs changing
-                            print(f"Handle exists: {str(self.window_handle)}")
-                            handle_match = False
-                            for w in self.windows:
-                                if w.getHandle() == self.window_handle:
-                                    handle_match = True
-                                    print("Found Handle Match:"\
-                                        f" {str(w.getHandle())}")
-                                    window_match = w
-                                    print(self.window)
-                                    if window_match.title != self.window:
-                                        print("Changing target title")
-                                        print(f"Old Title: {self.window_name}")                                    
-                                        self.window_name = w.title
-                                        print(f"New Title: {self.window_name}")
-                            if handle_match == False:
-                                # TODO: If the handle no longer exists,
-                                # eg. Window or App closed
-                                raise
-                        else:
-                            print("I don't know how it gets here.")
-                            window_match = None
-                            # TODO: 
-                    except:
-                        print(f"Source {self.source_name} has changed." \
-                            " Select new source window")
-                        window_match = None
+                    window_match = self.window_capture_gen(data)
                 if window_match is not None:
                     print("Proceeding to resize")
                     self.window = pwc.getWindowsWithTitle(self.window_name)[0]
                     self.update_window_dim(self.window)
             elif (self.source_type == 'monitor_capture'):
-                # If monitor override, update with monitor override
-                # Else if no monitor ID, monitor does not exist
-                # Else search for the monitor and update
-                monitor_id = data.get('monitor', None)
-                if len(self.monitors.items()) == 1:
-                    print("Only one monitor detected. Forcing override.")
-                    for monitor in self.monitors.items():
-                        self.update_monitor_dim(monitor[1])
-                elif self.monitor_override is True:
-                    print(f"Monitor Override: {self.monitor_override}")
-                    for monitor in self.monitors.items():
-                        if monitor[0] == self.monitors_key[
-                            self.monitor_override_id]:
-                            self.update_monitor_dim(monitor[1])
-                elif monitor_id == None:
-                    print(f"Key 'monitor' does not exist in {data}")
-                else:
-                    print(f"Searching for monitor {monitor_id}")
-                    for monitor in self.monitors.items():
-                        if (monitor[1]['id'] == monitor_id):
-                            print(f"Found monitor {monitor['id']}")
-                            print(monitor)
-                            self.update_monitor_dim(monitor[1])
+                self.monitor_capture_gen(data)
             elif (self.source_type == 'display_capture'):
-                # The 'display' property is an index value and not the
-                # true monitor id. It is only returned when there is
-                # more than one monitor on your system. We will assume
-                # that the order of the monitors returned from pywinctl
-                # are in the same order that OBS is assigning the
-                # display index value.
-                monitor_index = data.get('display', 0)
-                print(f"Retrieving monitor {monitor_index}")
-                for monitor in self.monitors.items():
-                    if (monitor['id'] == monitor_index):
-                        print(f"Found monitor {monitor['id']}")
-                        print(monitor)
-                        self.update_monitor_dim(monitor)
+                self.monitor_capture_mac(data)
             if (self.manual_offset
                 or self.monitor_size_override):
                 self.source_x += self.source_x_override
