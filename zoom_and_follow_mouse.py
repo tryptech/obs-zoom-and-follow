@@ -1,7 +1,7 @@
 import obspython as obs 
 import pywinctl as pwc # version >=0.0.38
 from math import sqrt
-from json import loads
+from json import load, loads
 
 c = pwc.getMousePos
 get_position = lambda: [c().x, c().y]
@@ -18,7 +18,7 @@ USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
 # -------------------------------------------------------------------
 
 class CursorWindow:
-    flag = lock = track = True
+    flag = lock = track = update = True
     zi_timer = zo_timer = 0
     windows = window_titles = monitor = window = window_handle \
         = window_name = ''
@@ -224,7 +224,7 @@ class CursorWindow:
             print(f"Searching for monitor {monitor_id}")
             for monitor in self.monitors.items():
                 if (monitor[1]['id'] == monitor_id):
-                    print(f"Found monitor {monitor['id']}")
+                    print(f"Found monitor {monitor[1]['id']}")
                     print(monitor)
                     self.update_monitor_dim(monitor[1])
 
@@ -260,6 +260,7 @@ class CursorWindow:
             # information must also exists. Source Type is pulled to 
             # determine if the source is a display, game, or window
 
+            print(self.source_type)
             self.source_type = obs.obs_source_get_id(source)
             print("Source Type: " + self.source_type)
             if (self.source_type in { 'window_capture','game_capture' }):
@@ -505,26 +506,19 @@ class CursorWindow:
         obs.obs_data_release(s)
         obs.obs_source_release(source)
         obs.obs_source_release(crop)
-
         if (inOut == 0) and (self.zo_timer >= totalFrames):
             obs.remove_current_callback()
-
-    def reset_crop(self):
-        """
-        Resets crop filter dimensions and removes timer callback
-        """
-        self.set_crop(0)
+            if not self.track:
+                self.update = True
 
     def tracking(self):
         """
         Tracking state function
         """
         if self.lock:
-            if self.track:
-                self.follow(get_position())
-            self.set_crop(1)
-        else:
-            self.reset_crop()
+            if self.track or self.update:
+                self.update = self.follow(get_position())
+        self.set_crop(int(self.lock))
 
     def tick(self):
         """
@@ -568,8 +562,15 @@ def script_defaults(settings):
 def script_update(settings):
     global new_source
 
-    if zoom.source_name != obs.obs_data_get_string(settings, "source"):
-        zoom.source_name = obs.obs_data_get_string(settings, "source")
+    source_string = obs.obs_data_get_string(settings, "source")
+    if source_string is "":
+        zoom.source_name = zoom.source_type = ""
+        return
+
+    [source, source_type] = source_string.split("||")
+    if zoom.source_name != source:
+        zoom.source_name = source
+        zoom.source_type = source_type
         new_source = True
     if new_source:
         print("Source update")
@@ -578,8 +579,8 @@ def script_update(settings):
         if len(sources) == 0:
             print("No sources, likely OBS startup.")
     else:
-        zoom.update_source_size()
         print("Non-initial update")
+        zoom.update_source_size()
     print("Source Name: " + zoom.source_name)
     zoom.monitor_override = obs.obs_data_get_bool(settings,
         "Manual Monitor Override")
@@ -619,8 +620,9 @@ def populate_list_property_with_source_names(list_property):
             source_type = obs.obs_source_get_id(source)
             if source_type in { "monitor_capture", "window_capture",
                 "game_capture", "display_capture" }:
-                name = obs.obs_source_get_name(source)
-                obs.obs_property_list_add_string(list_property, name, name)
+                name_val = name = obs.obs_source_get_name(source)
+                name = name + "||" + source_type
+                obs.obs_property_list_add_string(list_property, name_val, name)
     obs.source_list_release(sources)
     new_source = True
     print(f"New source: {str(new_source)}")
@@ -646,10 +648,9 @@ def callback(props, prop, *args):
     monitor_override = obs.obs_properties_get(props, "Manual Monitor Override")
     monitor_size_override = obs.obs_properties_get(props, "Manual Monitor Dim")
     refresh_monitor = obs.obs_properties_get(props, "Refresh monitors")
-    source = obs.obs_get_source_by_name(zoom.source_name)
-    source_type = obs.obs_source_get_id(source)
+    source_type = zoom.source_type
     if prop_name == "source":
-        if source_type == 'monitor_capture':
+        if source_type in {'monitor_capture', 'display_capture'}:
             obs.obs_property_set_visible(monitor_override,True)
             obs.obs_property_set_visible(refresh_monitor,True)
             obs.obs_property_set_visible(monitor_size_override,True)
@@ -678,18 +679,18 @@ def callback(props, prop, *args):
 def script_properties():
     props = obs.obs_properties_create()
 
-    p = obs.obs_properties_add_list(
+    zs = obs.obs_properties_add_list(
         props,
         "source",
         "Zoom Source",
         obs.OBS_COMBO_TYPE_LIST,
         obs.OBS_COMBO_FORMAT_STRING,
     )
-    populate_list_property_with_source_names(p)
+    populate_list_property_with_source_names(zs)
 
     obs.obs_properties_add_button(props, "Refresh sources",
         "Refresh list of sources",
-    lambda props,prop: True if callback(props, p) else True)
+    lambda props,prop: True if callback(props, zs) else True)
     
     monitor_override = obs.obs_properties_add_bool(props,
         "Manual Monitor Override", "Enable Monitor Override")
@@ -705,7 +706,7 @@ def script_properties():
 
     rm = obs.obs_properties_add_button(props,
         "Refresh monitors", "Refresh list of monitors", lambda props,
-        prop: True if callback(props, p) else True)
+        prop: True if callback(props, zs) else True)
 
     mon_size = obs.obs_properties_add_bool(props,
         "Manual Monitor Dim", "Enable Manual Monitor Dimensions")
@@ -736,15 +737,19 @@ def script_properties():
     obs.obs_properties_add_int_slider(props,
         "Zoom", "Zoom Duration (ms)", 0, 1000, 1)
 
-    obs.obs_property_set_visible(monitor_override, False)
-    obs.obs_property_set_visible(m, False)
-    obs.obs_property_set_visible(rm, False)
-    obs.obs_property_set_visible(mon_h, False)
-    obs.obs_property_set_visible(mon_w, False)
-    obs.obs_property_set_visible(mx, False)
-    obs.obs_property_set_visible(my, False)
+    mon_show = (True if
+        zoom.source_type in { 'monitor_capture', 'display_capture' }
+        else False)
+        
+    obs.obs_property_set_visible(monitor_override, mon_show)
+    obs.obs_property_set_visible(m, zoom.monitor_override)
+    obs.obs_property_set_visible(rm, zoom.monitor_override)
+    obs.obs_property_set_visible(mon_h, zoom.monitor_override)
+    obs.obs_property_set_visible(mon_w, zoom.monitor_override)
+    obs.obs_property_set_visible(mx, zoom.manual_offset)
+    obs.obs_property_set_visible(my, zoom.manual_offset)
     
-    obs.obs_property_set_modified_callback(p, callback)
+    obs.obs_property_set_modified_callback(zs, callback)
     obs.obs_property_set_modified_callback(monitor_override, callback)
     obs.obs_property_set_modified_callback(mon_size, callback)
     obs.obs_property_set_modified_callback(offset, callback)
@@ -753,6 +758,10 @@ def script_properties():
 
 def script_load(settings):
     global zoom_id_tog
+
+    load_settings = loads(obs.obs_data_get_json(settings))
+    [source, source_type] = load_settings['source'].split("||")
+    [zoom.source_name, zoom.source_type] = [source, source_type]
 
     zoom_id_tog = obs.obs_hotkey_register_frontend(
         ZOOM_NAME_TOG, ZOOM_DESC_TOG, toggle_zoom
@@ -769,6 +778,7 @@ def script_load(settings):
     obs.obs_hotkey_load(follow_id_tog, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
     zoom.update_sources()
+    zoom.new_source = True
 
 
 def script_unload():
@@ -801,7 +811,6 @@ def toggle_zoom(pressed):
         print(f"Zoom: {zoom.lock}")
         if zoom.lock:
             print(f"Mouse position: {get_position()}")
-
 
 
 def toggle_follow(pressed):
