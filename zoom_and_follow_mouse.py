@@ -333,9 +333,9 @@ class CursorWindow:
         """
         track = False
 
-        if ((mousePos[0] - (self.source_x + self.source_w) < 0)
+        if ((mousePos[0] - (self.source_x + self.source_w) < 1)
             and (mousePos[0] - self.source_x > -1)):
-            if ((mousePos[1] - (self.source_y + self.source_h) < 0)
+            if ((mousePos[1] - (self.source_y + self.source_h) < 1)
                 and (mousePos[1] - self.source_y > -1)):
                     track = True
 
