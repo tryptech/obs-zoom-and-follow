@@ -345,10 +345,7 @@ class CursorWindow:
         move = False
 
         # Find shortest dimension (usually height)
-        if self.zoom_w > self.zoom_h:
-            borderScale = self.zoom_h
-        else:
-            borderScale = self.zoom_w
+        borderScale = min(self.zoom_w, self.zoom_h)
         # Get active zone edges
         zoom_edge_left = (  self.zoom_x
                             + int(self.active_border * borderScale))
@@ -371,7 +368,7 @@ class CursorWindow:
             zoom_edge_bottom = zoom_edge_top
 
         # Set smoothing values
-        smoothFactor = int((self.smooth * 9) / 10 + 1)
+        smoothFactor = 1 if self.update else int((self.smooth * 9) / 10 + 1)
 
         # Set x and y zoom offset
         x_o = mousePos[0] - self.source_x
@@ -395,11 +392,12 @@ class CursorWindow:
             move = True
 
         # Max speed clamp
+        #if not self.update:
         speed_h = sqrt((offset_x**2)+(offset_y**2))
-        if (speed_h > self.max_speed):
-            speed_factor = speed_h/float(self.max_speed)
-            offset_x *= speed_factor
-            offset_y *= speed_factor
+        speed_factor = max(self.max_speed, speed_h)/float(self.max_speed)
+        if not self.update:
+            offset_x /= speed_factor
+            offset_y /= speed_factor
 
         self.zoom_x += offset_x
         self.zoom_y += offset_y
@@ -473,11 +471,13 @@ class CursorWindow:
                     "cy",
                     self.zoom_h + int(time * (self.source_h - self.zoom_h)),
                 )
+                self.update = True
             else:
                 i(s, "left", 0)
                 i(s, "top", 0)
                 i(s, "cx", self.source_w)
                 i(s, "cy", self.source_h)
+                self.update = False
         else:
             self.zo_timer = 0
             if self.zi_timer < totalFrames:
@@ -495,11 +495,13 @@ class CursorWindow:
                     "cy",
                     self.source_h - int(time * (self.source_h - self.zoom_h)),
                 )
+                self.update = True if time < 0.8 else False
             else:
                 i(s, "left", int(self.zoom_x))
                 i(s, "top", int(self.zoom_y))
                 i(s, "cx", int(self.zoom_w))
                 i(s, "cy", int(self.zoom_h))
+                self.update = False
 
         obs.obs_source_update(crop, s)
 
@@ -508,8 +510,6 @@ class CursorWindow:
         obs.obs_source_release(crop)
         if (inOut == 0) and (self.zo_timer >= totalFrames):
             obs.remove_current_callback()
-            if not self.track:
-                self.update = True
 
     def tracking(self):
         """
@@ -517,7 +517,7 @@ class CursorWindow:
         """
         if self.lock:
             if self.track or self.update:
-                self.update = self.follow(get_position())
+                self.follow(get_position())
         self.set_crop(int(self.lock))
 
     def tick(self):
