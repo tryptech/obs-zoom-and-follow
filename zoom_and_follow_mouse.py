@@ -334,9 +334,9 @@ class CursorWindow:
         track = False
 
         if ((mousePos[0] - (self.source_x + self.source_w) < 0)
-            and (mousePos[0] - self.source_x > 0)):
+            and (mousePos[0] - self.source_x > -1)):
             if ((mousePos[1] - (self.source_y + self.source_h) < 0)
-                and (mousePos[1] - self.source_y > 0)):
+                and (mousePos[1] - self.source_y > -1)):
                     track = True
 
         if not track:
@@ -455,7 +455,7 @@ class CursorWindow:
         i = obs.obs_data_set_int
 
         if inOut == 0:
-            self.zi_timer = 0
+            self.resetZI()
             if self.zo_timer < totalFrames:
                 self.zo_timer += 1
                 time = self.cubic_in_out(self.zo_timer / totalFrames)
@@ -479,7 +479,7 @@ class CursorWindow:
                 i(s, "cy", self.source_h)
                 self.update = False
         else:
-            self.zo_timer = 0
+            self.resetZO()
             if self.zi_timer < totalFrames:
                 self.zi_timer += 1
                 time = self.cubic_in_out(self.zi_timer / totalFrames)
