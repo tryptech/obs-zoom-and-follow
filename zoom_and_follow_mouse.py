@@ -1,3 +1,10 @@
+"""
+This script is intended to be called from OBS Studio. Provides
+mouse-based zoom and tracking for desktop/monitor/window/game sources.
+For more information please visit:
+https://github.com/tryptech/obs-zoom-and-follow
+"""
+
 import obspython as obs 
 import pywinctl as pwc # version >=0.0.38
 from math import sqrt
