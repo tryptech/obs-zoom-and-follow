@@ -563,7 +563,7 @@ def script_update(settings):
     global new_source
 
     source_string = obs.obs_data_get_string(settings, "source")
-    if source_string is "":
+    if source_string == "":
         zoom.source_name = zoom.source_type = ""
         return
 
