@@ -536,8 +536,8 @@ def script_description():
         "Crops and resizes a source to simulate a zoomed in tracked to"\
             " the mouse.\n\n"
         + "Set activation hotkey in Settings.\n\n"
-        + "Active Border enables lazy tracking; border size calculated"\
-            " as percent of smallest dimension. "
+        + "Active Border enables lazy/smooth tracking; border size"\
+            "calculated as percent of smallest dimension. "
         + "Border of 50% keeps mouse locked in the center of the zoom"\
             " frame\n\n"
         + "By tryptech (@yo_tryptech / tryptech#1112)"
