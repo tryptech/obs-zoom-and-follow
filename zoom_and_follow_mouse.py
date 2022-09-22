@@ -767,8 +767,12 @@ def script_load(settings):
     global zoom_id_tog
 
     load_settings = loads(obs.obs_data_get_json(settings))
-    [source, source_type] = load_settings['source'].split("||")
-    [zoom.source_name, zoom.source_type] = [source, source_type]
+    try:
+        [source, source_type] = load_settings['source'].split("||")
+        [zoom.source_name, zoom.source_type] = [source, source_type]
+    except:
+        print("Key 'source' does not exist")
+        print(load_settings)
 
     zoom_id_tog = obs.obs_hotkey_register_frontend(
         ZOOM_NAME_TOG, ZOOM_DESC_TOG, toggle_zoom
