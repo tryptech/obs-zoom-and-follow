@@ -548,6 +548,7 @@ def script_description():
         + "Border of 50% keeps mouse locked in the center of the zoom"\
             " frame\n\n"
         + "By tryptech (@yo_tryptech / tryptech#1112)"
+        + "v2022.09.21"
     )
 
 
