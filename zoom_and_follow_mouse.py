@@ -7,6 +7,7 @@ https://github.com/tryptech/obs-zoom-and-follow
 
 import obspython as obs 
 import pywinctl as pwc # version >=0.0.38
+from platform import system
 from math import sqrt
 from json import load, loads
 
@@ -547,8 +548,8 @@ def script_description():
             "calculated as percent of smallest dimension. "
         + "Border of 50% keeps mouse locked in the center of the zoom"\
             " frame\n\n"
-        + "By tryptech (@yo_tryptech / tryptech#1112)"
-        + "v2022.09.21"
+        + "By tryptech (@yo_tryptech / tryptech#1112)\n\n"
+        + "v2022.09.22"
     )
 
 
@@ -625,6 +626,8 @@ def populate_list_property_with_source_names(list_property):
         obs.obs_property_list_clear(list_property)
         obs.obs_property_list_add_string(list_property, "", "")
         for source in sources:
+            if system() == "Darwin":
+                print(f"{obs.obs_source_get_name(source)}")
             source_type = obs.obs_source_get_id(source)
             if source_type in { "monitor_capture", "window_capture",
                 "game_capture", "display_capture" }:
