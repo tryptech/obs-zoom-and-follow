@@ -622,12 +622,13 @@ def populate_list_property_with_source_names(list_property):
     print("Updating Source List")
     zoom.update_sources()
     sources = obs.obs_enum_sources()
+    print(f"System: {system()}")
     if sources is not None:
         obs.obs_property_list_clear(list_property)
         obs.obs_property_list_add_string(list_property, "", "")
         for source in sources:
             if system() == "Darwin":
-                print(f"{obs.obs_source_get_name(source)}")
+                print(f"{obs.obs_source_get_name(source)} | {source}")
             source_type = obs.obs_source_get_id(source)
             if source_type in { "monitor_capture", "window_capture",
                 "game_capture", "display_capture" }:
