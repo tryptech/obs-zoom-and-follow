@@ -5,6 +5,18 @@ For more information please visit:
 https://github.com/tryptech/obs-zoom-and-follow
 """
 
+description = (
+    "Crops and resizes a source to simulate a zoomed in tracked to"\
+    " the mouse.\n\n"
+    + "Set activation hotkey in Settings.\n\n"
+    + "Active Border enables lazy/smooth tracking; border size"\
+    "calculated as percent of smallest dimension. "
+    + "Border of 50% keeps mouse locked in the center of the zoom"\
+    " frame\n\n"
+    + "By tryptech (@yo_tryptech / tryptech#1112)\n\n"
+    + "v2022.09.26"
+)
+
 import obspython as obs 
 import pywinctl as pwc # version >=0.0.38
 from platform import system
@@ -102,8 +114,7 @@ class CursorWindow:
             print(f"{self.source_w}, {self.source_h}, {self.source_x}, \
                 {self.source_y}")
         else:
-            print("Updating stored dimensions to match monitor's dimensions")
-            print(monitor)
+            print(f"Updating stored dimensions to match monitor's dimensions | {monitor}")
             if (self.source_w != monitor['size'].width
                 or self.source_h != monitor['size'].height
                 or self.source_x != monitor['pos'].x
@@ -146,8 +157,7 @@ class CursorWindow:
         print(f"Retrieving monitor {monitor_index}")
         for monitor in self.monitors.items():
             if (monitor['id'] == monitor_index):
-                print(f"Found monitor {monitor['id']}")
-                print(monitor)
+                print(f"Found monitor {monitor['id']} | {monitor}")
                 self.update_monitor_dim(monitor)
 
     def window_capture_gen(self, data):
@@ -187,9 +197,8 @@ class CursorWindow:
                 for w in self.windows:
                     if w.getHandle() == self.window_handle:
                         handle_match = True
-                        print("Found Handle:"f" {str(w.getHandle())}")
+                        print(f"Found Handle: {str(w.getHandle())} | {self.window}")
                         window_match = w
-                        print(self.window)
                         if window_match.title != self.window:
                             print("Changing target title")
                             print(f"Old Title: {self.window_name}")
@@ -232,8 +241,7 @@ class CursorWindow:
             print(f"Searching for monitor {monitor_id}")
             for monitor in self.monitors.items():
                 if (monitor[1]['id'] == monitor_id):
-                    print(f"Found monitor {monitor[1]['id']}")
-                    print(monitor)
+                    print(f"Found monitor {monitor[1]['id']} | {monitor}")
                     self.update_monitor_dim(monitor[1])
 
     def update_source_size(self):
@@ -268,9 +276,9 @@ class CursorWindow:
             # information must also exists. Source Type is pulled to 
             # determine if the source is a display, game, or window
 
-            print(self.source_type)
+            print(f"Source loaded successfully: {self.source_type}")
             self.source_type = obs.obs_source_get_id(source)
-            print("Source Type: " + self.source_type)
+            print(f"Source Type: f{self.source_type}")
             if (self.source_type in { 'window_capture','game_capture' }):
                 window_match = ''
                 if 'window_name' in data:
@@ -540,17 +548,7 @@ zoom = CursorWindow()
 
 # -------------------------------------------------------------------
 def script_description():
-    return (
-        "Crops and resizes a source to simulate a zoomed in tracked to"\
-            " the mouse.\n\n"
-        + "Set activation hotkey in Settings.\n\n"
-        + "Active Border enables lazy/smooth tracking; border size"\
-            "calculated as percent of smallest dimension. "
-        + "Border of 50% keeps mouse locked in the center of the zoom"\
-            " frame\n\n"
-        + "By tryptech (@yo_tryptech / tryptech#1112)\n\n"
-        + "v2022.09.22"
-    )
+    return description
 
 
 def script_defaults(settings):
@@ -776,8 +774,7 @@ def script_load(settings):
         [source, source_type] = load_settings['source'].split("||")
         [zoom.source_name, zoom.source_type] = [source, source_type]
     except:
-        print("Key 'source' does not exist")
-        print(load_settings)
+        print(f"Key 'source' does not exist | {load_settings}")
 
     zoom_id_tog = obs.obs_hotkey_register_frontend(
         ZOOM_NAME_TOG, ZOOM_DESC_TOG, toggle_zoom
