@@ -14,7 +14,7 @@ description = (
     + "Border of 50% keeps mouse locked in the center of the zoom"\
     " frame\n\n"
     + "By tryptech (@yo_tryptech / tryptech#1112)\n\n"
-    + "v2022.09.26"
+    + "v.2022.10.21"
 )
 
 import obspython as obs 
@@ -278,7 +278,7 @@ class CursorWindow:
 
             print(f"Source loaded successfully: {self.source_type}")
             self.source_type = obs.obs_source_get_id(source)
-            print(f"Source Type: f{self.source_type}")
+            print(f"Source Type: {self.source_type}")
             if (self.source_type in { 'window_capture','game_capture' }):
                 window_match = ''
                 if 'window_name' in data:
@@ -373,6 +373,18 @@ class CursorWindow:
         zoom_edge_bottom = (self.zoom_y
                             + self.zoom_h
                             - int(self.active_border * borderScale))
+        
+        if zoom.active_border >= 0.5:
+            zoom_edge_left = (  self.zoom_x
+                                + int(self.active_border * self.zoom_w))
+            zoom_edge_right = ( self.zoom_x
+                                + self.zoom_w
+                                - int(self.active_border * self.zoom_w))
+            zoom_edge_top = (   self.zoom_y
+                                + int(self.active_border * self.zoom_h))
+            zoom_edge_bottom = (self.zoom_y
+                                + self.zoom_h
+                                - int(self.active_border * self.zoom_h))
 
         # Clamp zone edges at center
         if zoom_edge_right < zoom_edge_left:
@@ -409,11 +421,12 @@ class CursorWindow:
 
         # Max speed clamp
         #if not self.update:
-        speed_h = sqrt((offset_x**2)+(offset_y**2))
-        speed_factor = max(self.max_speed, speed_h)/float(self.max_speed)
-        if not self.update:
-            offset_x /= speed_factor
-            offset_y /= speed_factor
+        if self.active_border < 0.5:
+            speed_h = sqrt((offset_x**2)+(offset_y**2))
+            speed_factor = max(self.max_speed, speed_h)/float(self.max_speed)
+            if not self.update:
+                offset_x /= speed_factor
+                offset_y /= speed_factor
 
         self.zoom_x += offset_x
         self.zoom_y += offset_y
