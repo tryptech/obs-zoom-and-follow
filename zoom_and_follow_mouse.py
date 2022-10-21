@@ -289,7 +289,7 @@ class CursorWindow:
                     print("Proceeding to resize")
                     self.window = pwc.getWindowsWithTitle(self.window_name)[0]
                     self.update_window_dim(self.window)
-            elif (self.source_type == 'monitor_capture'):
+            elif (self.source_type in {'monitor_capture', 'xshm_input'} ):
                 self.monitor_capture_gen(data)
             elif (self.source_type == 'display_capture'):
                 self.monitor_capture_mac(data)
@@ -673,7 +673,7 @@ def callback(props, prop, *args):
     refresh_monitor = obs.obs_properties_get(props, "Refresh monitors")
     source_type = zoom.source_type
     if prop_name == "source":
-        if source_type in {'monitor_capture', 'display_capture'}:
+        if source_type in {'monitor_capture', 'display_capture', 'xshm_input'}:
             obs.obs_property_set_visible(monitor_override,True)
             obs.obs_property_set_visible(refresh_monitor,True)
             obs.obs_property_set_visible(monitor_size_override,True)
@@ -761,7 +761,7 @@ def script_properties():
         "Zoom", "Zoom Duration (ms)", 0, 1000, 1)
 
     mon_show = (True if
-        zoom.source_type in { 'monitor_capture', 'display_capture' }
+        zoom.source_type in { 'monitor_capture', 'display_capture', 'xshm_input' }
         else False)
         
     obs.obs_property_set_visible(monitor_override, mon_show)
