@@ -62,7 +62,8 @@ class CaptureSources:
         return self.window.sources | self.monitor.all_sources()
 
 
-        # window_capture game_capture
+# Matches against values returned by obs.obs_source_get_id(source).
+# See populate_list_property_with_source_names() below.
 SOURCES = CaptureSources(
     window=WindowCaptureSources({'window_capture', 'game_capture'}),
     monitor=MonitorCaptureSources(
@@ -667,6 +668,11 @@ def script_update(settings):
 
 
 def populate_list_property_with_source_names(list_property):
+    """
+    Updates Zoom Source's available options.
+
+    Checks a source against SOURCES to determine availability.
+    """
     global new_source
 
     print("Updating Source List")
@@ -679,6 +685,8 @@ def populate_list_property_with_source_names(list_property):
         for source in sources:
             if system() == "Darwin":
                 print(f"{obs.obs_source_get_name(source)} | {source}")
+            # Print this value if a source isn't showing in the UI as expected
+            # and add it to SOURCES above for either window or monitor capture.
             source_type = obs.obs_source_get_id(source)
             if source_type in SOURCES.all_sources():
                 name_val = name = obs.obs_source_get_name(source)
