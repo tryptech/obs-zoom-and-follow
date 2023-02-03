@@ -36,13 +36,6 @@ ZOOM_DESC_TOG = "Enable/Disable Mouse Zoom"
 FOLLOW_DESC_TOG = "Enable/Disable Mouse Follow"
 USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
 
-WIN = "windows"
-MAC = "macos"
-LIN_OTH = "linux/other"
-
-WINDOW = 'window source'
-MONITOR = 'monitor source'
-
 
 # -------------------------------------------------------------------
 class WindowCaptureSources:
