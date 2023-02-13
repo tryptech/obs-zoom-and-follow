@@ -40,3 +40,4 @@ To Do
 -----
 - Automatically setup transform bounding box
 - Only track windows/games when they are the active window
+- Refactor Mac support
