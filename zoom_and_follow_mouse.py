@@ -20,7 +20,7 @@ description = (
     + "Border of 50% keeps mouse locked in the center of the zoom"
     " frame\n\n"
     + "By tryptech (@yo_tryptech / tryptech#1112)\n\n"
-    + "v.2022.10.21"
+    + "v.2023.02.13"
 )
 
 c = pwc.getMousePos
