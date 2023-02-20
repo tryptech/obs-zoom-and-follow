@@ -68,7 +68,7 @@ SOURCES = CaptureSources(
     window=WindowCaptureSources({'window_capture', 'game_capture'}),
     monitor=MonitorCaptureSources(
         windows={'monitor_capture'},
-        macos={'display_capture'},
+        macos={'display_capture', 'screen_capture'},
         linux={'monitor_capture', 'xshm_input',
                'pipewire-desktop-capture-source'}
     )
@@ -387,6 +387,13 @@ class CursorWindow:
             all connected displays
         :return: If the zoom window was moved
         """
+
+        # When the mouse goes to the left edge or top edge of a Mac display, the cursor is set to 0,0
+        # This attempts to ignore the mouse when it is set to that value
+        # This attempts to ignore the mouse coordinates are set to that value on Mac only.
+        if system() == 'Darwin' and (mousePos[0] == 0 and mousePos[1] == 0):
+            return False
+
         track = False
 
         if ((mousePos[0] - (self.source_x + self.source_w) < 1)
@@ -872,7 +879,8 @@ def toggle_zoom(pressed):
         if new_source:
             zoom.update_sources()
         if zoom.source_name != "" and zoom.flag:
-            zoom.update_source_size()
+            if zoom.source_type not in SOURCES.monitor.all_sources():
+                zoom.update_source_size()
             obs.timer_add(zoom.tick, zoom.refresh_rate)
             zoom.lock = True
             zoom.flag = False
