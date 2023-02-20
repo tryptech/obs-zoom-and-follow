@@ -20,7 +20,7 @@ description = (
     + "Border of 50% keeps mouse locked in the center of the zoom"
     " frame\n\n"
     + "By tryptech (@yo_tryptech / tryptech#1112)\n\n"
-    + "v.2023.02.13"
+    + "v.2023.02.20"
 )
 
 c = pwc.getMousePos
@@ -53,13 +53,19 @@ class MonitorCaptureSources:
         return self.windows | self.macos | self.linux
 
 
+class AppleSiliconCaptureSources:
+    def __init__(self, sources):
+        self.sources = sources
+
+
 class CaptureSources:
-    def __init__(self, window, monitor):
+    def __init__(self, window, monitor, applesilicon):
         self.window = window
         self.monitor = monitor
+        self.applesilicon = applesilicon
 
     def all_sources(self):
-        return self.window.sources | self.monitor.all_sources()
+        return self.window.sources | self.monitor.all_sources() | self.applesilicon.sources
 
 
 # Matches against values returned by obs.obs_source_get_id(source).
@@ -68,10 +74,11 @@ SOURCES = CaptureSources(
     window=WindowCaptureSources({'window_capture', 'game_capture'}),
     monitor=MonitorCaptureSources(
         windows={'monitor_capture'},
-        macos={'display_capture', 'screen_capture'},
+        macos={'display_capture'},
         linux={'monitor_capture', 'xshm_input',
                'pipewire-desktop-capture-source'}
-    )
+    ),
+    applesilicon=AppleSiliconCaptureSources({'screen_capture','screen_capture'})
 )
 
 
@@ -95,13 +102,14 @@ class CursorWindow:
     smooth = 1.0
     zoom_time = 300
 
-    def update_sources(self):
+    def update_sources(self, settings_update = False):
         """
         Update the list of Windows and Monitors from PyWinCtl
         """
-        self.windows = pwc.getAllWindows()
-        self.monitors = pwc.getAllScreens()
-        self.monitors_key = list(dict.keys(self.monitors))
+        if not (system() == "Darwin") or not settings_update:
+            self.windows = pwc.getAllWindows()
+            self.monitors = pwc.getAllScreens()
+            self.monitors_key = list(dict.keys(self.monitors))
 
     def update_window_dim(self, window):
         """
@@ -199,7 +207,29 @@ class CursorWindow:
                 print(f"Found monitor {monitor['id']} | {monitor}")
                 self.update_monitor_dim(monitor)
 
-    def window_capture_gen(self, data):
+    def screen_capture_mac(self, data):
+        """
+        From macOS 12.5+, OBS reports all window and display captures
+        as the same type.
+
+        data.type is in {0, 1, 2} where:
+            DISPLAY = 0
+            WINDOW = 1
+            APPLICATION = 2
+        
+        Use is expected to be for DISPLAY or WINDOW
+        """
+        print("Apple Silicon")
+        screen_capture_type = data.get('type')
+        if (screen_capture_type == 0):
+            monitor_id = data.get('display')
+            for monitor in self.monitors.items():
+                if (monitor[1]['id'] == monitor_id):
+                    print(f"Found monitor {monitor[1]['id']} | {monitor[0]}")
+                    self.update_monitor_dim(monitor[1])
+
+
+    def window_capture_generic(self, data):
         """
         TODO: More Linux testing, specifically with handles Windows
         capture for Windows and Linux. In Windows, application data is
@@ -258,7 +288,7 @@ class CursorWindow:
             window_match = None
         return window_match
 
-    def monitor_capture_gen(self, data):
+    def monitor_capture_generic(self, data):
         """
         If monitor override, update with monitor override
         Else if no monitor ID, monitor does not exist
@@ -331,6 +361,8 @@ class CursorWindow:
                     self.update_window_dim(self.window)
             elif (self.source_type in SOURCES.monitor.windows | SOURCES.monitor.linux):
                 self.monitor_capture_gen(data)
+            elif (self.source_type in SOURCES.applesilicon.sources):
+                self.screen_capture_mac(data)
             elif (self.source_type in SOURCES.monitor.macos):
                 self.monitor_capture_mac(data)
             if (self.manual_offset
@@ -388,12 +420,6 @@ class CursorWindow:
         :return: If the zoom window was moved
         """
 
-        # When the mouse goes to the left edge or top edge of a Mac display, the cursor is set to 0,0
-        # This attempts to ignore the mouse when it is set to that value
-        # This attempts to ignore the mouse coordinates are set to that value on Mac only.
-        if system() == 'Darwin' and (mousePos[0] == 0 and mousePos[1] == 0):
-            return False
-
         track = False
 
         if ((mousePos[0] - (self.source_x + self.source_w) < 1)
@@ -401,6 +427,11 @@ class CursorWindow:
             if ((mousePos[1] - (self.source_y + self.source_h) < 1)
                     and (mousePos[1] - self.source_y > -1)):
                 track = True
+
+        # When the mouse goes to the left edge or top edge of a Mac display, the cursor is set to 0,0
+        # This attempts to ignore the mouse coordinates are set to that value on Mac only.
+        if system() == 'Darwin' and (mousePos[0] == 0 and mousePos[1] == 0):
+            track = False
 
         if not track:
             return track
@@ -641,7 +672,7 @@ def script_update(settings):
         new_source = True
     if new_source:
         print("Source update")
-        zoom.update_sources()
+        zoom.update_sources(True)
         sources = obs.obs_enum_sources()
         if len(sources) == 0:
             print("No sources, likely OBS startup.")
@@ -726,10 +757,13 @@ def callback(props, prop, *args):
     refresh_monitor = obs.obs_properties_get(props, "Refresh monitors")
     source_type = zoom.source_type
     if prop_name == "source":
+        populate_list_property_with_source_names(prop)
         if source_type in SOURCES.monitor.all_sources():
             obs.obs_property_set_visible(monitor_override, True)
             obs.obs_property_set_visible(refresh_monitor, True)
             obs.obs_property_set_visible(monitor_size_override, True)
+            if system() == "Darwin":
+                zoom.update_source_size()
         else:
             obs.obs_property_set_visible(monitor_override, False)
             obs.obs_property_set_visible(refresh_monitor, False)
@@ -855,8 +889,9 @@ def script_load(settings):
     hotkey_save_array = obs.obs_data_get_array(settings, FOLLOW_NAME_TOG)
     obs.obs_hotkey_load(follow_id_tog, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
-    zoom.update_sources()
-    zoom.new_source = True
+    if system() != "Darwin":
+        zoom.update_sources()
+        zoom.new_source = True
 
 
 def script_unload():
