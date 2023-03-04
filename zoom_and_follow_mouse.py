@@ -79,6 +79,7 @@ class CursorWindow:
     # Activate zoom mode?
     lock = False
     track = update = True
+    ticking = False
     zi_timer = zo_timer = 0
     windows = window_titles = monitor = window = window_handle \
         = window_name = ''
@@ -586,13 +587,21 @@ class CursorWindow:
         # and not following the cursor
         if ((not self.lock) and (self.zo_timer >= totalFrames)) \
                 or (self.lock and (not self.track) and (self.zi_timer >= totalFrames)):
-            obs.remove_current_callback()
-            print("Zoom: stop ticking")
+            self.tick_disable()
 
+    def tick_enable(self):
+        if self.ticking:
+            return
 
-    def enable_ticking(self):
         obs.timer_add(self.tick, self.refresh_rate)
-        print("Zoom: start ticking")
+
+        self.ticking = True
+        print(f"Ticking: {self.ticking}")
+
+    def tick_disable(self):
+        obs.remove_current_callback()
+        self.ticking = False
+        print(f"Ticking: {self.ticking}")
 
     def tracking(self):
         """
@@ -888,10 +897,10 @@ def toggle_zoom(pressed):
         if zoom.source_name != "" and not zoom.lock:
             zoom.update_source_size()
             zoom.lock = True
-            zoom.enable_ticking()
+            zoom.tick_enable()
         elif zoom.lock:
             zoom.lock = False
-            zoom.enable_ticking()
+            zoom.tick_enable()
         print(f"Zoom: {zoom.lock}")
         if zoom.lock:
             print(f"Mouse position: {get_cursor_position()}")
@@ -903,6 +912,7 @@ def toggle_follow(pressed):
             zoom.track = False
         elif not zoom.track:
             zoom.track = True
+            # Tick if zoomed in, to enable follow updates
             if zoom.lock:
-                zoom.enable_ticking()
+                zoom.tick_enable()
         print(f"Tracking: {zoom.track}")
