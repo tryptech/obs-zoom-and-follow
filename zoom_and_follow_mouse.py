@@ -844,8 +844,8 @@ def script_properties():
     obs.obs_property_set_visible(monitor_override, mon_show)
     obs.obs_property_set_visible(m, zoom.monitor_override)
     obs.obs_property_set_visible(rm, zoom.monitor_override)
-    obs.obs_property_set_visible(mon_h, zoom.monitor_override)
-    obs.obs_property_set_visible(mon_w, zoom.monitor_override)
+    obs.obs_property_set_visible(mon_h, zoom.monitor_size_override)
+    obs.obs_property_set_visible(mon_w, zoom.monitor_size_override)
     obs.obs_property_set_visible(mx, zoom.manual_offset)
     obs.obs_property_set_visible(my, zoom.manual_offset)
 
