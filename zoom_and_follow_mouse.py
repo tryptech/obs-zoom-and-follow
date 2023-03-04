@@ -504,11 +504,9 @@ class CursorWindow:
         elif self.zoom_y > y_max:
             self.zoom_y = y_max
 
-    def set_crop(self, inOut):
+    def set_crop(self):
         """
         Set dimensions of the crop filter used for zooming
-
-        :param inOut: direction of the filter zoom, in or out
         """
         totalFrames = int(self.zoom_time / self.refresh_rate)
 
@@ -527,7 +525,8 @@ class CursorWindow:
         crop_settings = obs.obs_source_get_settings(crop)
         obs_set_int = obs.obs_data_set_int
 
-        if inOut == 0:
+        if not self.lock:
+            # Zooming out
             self.resetZI()
             if self.zo_timer < totalFrames:
                 self.zo_timer += 1
@@ -552,6 +551,7 @@ class CursorWindow:
                 obs_set_int(crop_settings, "cy", self.source_h)
                 self.update = False
         else:
+            # Zooming in
             self.resetZO()
             if self.zi_timer < totalFrames:
                 self.zi_timer += 1
@@ -581,8 +581,18 @@ class CursorWindow:
         obs.obs_data_release(crop_settings)
         obs.obs_source_release(source)
         obs.obs_source_release(crop)
-        if (inOut == 0) and (self.zo_timer >= totalFrames):
+
+        # Stop ticking when we completed the zoom out or when we're zoomed in
+        # and not following the cursor
+        if ((not self.lock) and (self.zo_timer >= totalFrames)) \
+                or (self.lock and (not self.track) and (self.zi_timer >= totalFrames)):
             obs.remove_current_callback()
+            print("Zoom: stop ticking")
+
+
+    def enable_ticking(self):
+        obs.timer_add(self.tick, self.refresh_rate)
+        print("Zoom: start ticking")
 
     def tracking(self):
         """
@@ -591,7 +601,7 @@ class CursorWindow:
         if self.lock:
             if self.track or self.update:
                 self.follow(get_cursor_position())
-        self.set_crop(int(self.lock))
+        self.set_crop()
 
     def tick(self):
         """
@@ -877,10 +887,11 @@ def toggle_zoom(pressed):
             zoom.update_sources()
         if zoom.source_name != "" and not zoom.lock:
             zoom.update_source_size()
-            obs.timer_add(zoom.tick, zoom.refresh_rate)
             zoom.lock = True
+            zoom.enable_ticking()
         elif zoom.lock:
             zoom.lock = False
+            zoom.enable_ticking()
         print(f"Zoom: {zoom.lock}")
         if zoom.lock:
             print(f"Mouse position: {get_cursor_position()}")
@@ -892,4 +903,6 @@ def toggle_follow(pressed):
             zoom.track = False
         elif not zoom.track:
             zoom.track = True
+            if zoom.lock:
+                zoom.enable_ticking()
         print(f"Tracking: {zoom.track}")
