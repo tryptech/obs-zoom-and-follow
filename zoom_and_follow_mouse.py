@@ -92,7 +92,7 @@ class CursorWindow:
     monitor_override_id = ''
     source_w = source_h = source_x = source_y = zoom_x = zoom_y \
         = source_x_override = source_y_override = 0
-    refresh_rate = int(obs.obs_get_frame_interval_ns()/1000000)
+    refresh_rate = 16
     source_name = source_type = ''
     zoom_w = 1280
     zoom_h = 720
@@ -565,6 +565,10 @@ class CursorWindow:
     def tick_enable(self):
         if self.ticking:
             return
+
+        # Update refresh rate in case user has changed settings. Otherwise
+        # animations will feel slower/faster
+        self.refresh_rate = int(obs.obs_get_frame_interval_ns() / 1000000)
 
         obs.timer_add(self.tick, self.refresh_rate)
         self.ticking = True
