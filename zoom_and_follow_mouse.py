@@ -516,69 +516,69 @@ class CursorWindow:
         crop = obs.obs_source_get_filter_by_name(source, "ZoomCrop")
 
         if crop is None:  # create filter
-            _s = obs.obs_data_create()
-            obs.obs_data_set_bool(_s, "relative", False)
-            f = obs.obs_source_create_private("crop_filter",
-                                              "ZoomCrop", _s)
-            obs.obs_source_filter_add(source, f)
-            obs.obs_source_release(f)
-            obs.obs_data_release(_s)
+            obs_data = obs.obs_data_create()
+            obs.obs_data_set_bool(obs_data, "relative", False)
+            obs_crop_filter = obs.obs_source_create_private("crop_filter",
+                                              "ZoomCrop", obs_data)
+            obs.obs_source_filter_add(source, obs_crop_filter)
+            obs.obs_source_release(obs_crop_filter)
+            obs.obs_data_release(obs_data)
 
-        s = obs.obs_source_get_settings(crop)
-        i = obs.obs_data_set_int
+        crop_settings = obs.obs_source_get_settings(crop)
+        obs_set_int = obs.obs_data_set_int
 
         if inOut == 0:
             self.resetZI()
             if self.zo_timer < totalFrames:
                 self.zo_timer += 1
                 time = self.cubic_in_out(self.zo_timer / totalFrames)
-                i(s, "left", int(((1 - time) * self.zoom_x)))
-                i(s, "top", int(((1 - time) * self.zoom_y)))
-                i(
-                    s,
+                obs_set_int(crop_settings, "left", int(((1 - time) * self.zoom_x)))
+                obs_set_int(crop_settings, "top", int(((1 - time) * self.zoom_y)))
+                obs_set_int(
+                    crop_settings,
                     "cx",
                     self.zoom_w + int(time * (self.source_w - self.zoom_w)),
                 )
-                i(
-                    s,
+                obs_set_int(
+                    crop_settings,
                     "cy",
                     self.zoom_h + int(time * (self.source_h - self.zoom_h)),
                 )
                 self.update = True
             else:
-                i(s, "left", 0)
-                i(s, "top", 0)
-                i(s, "cx", self.source_w)
-                i(s, "cy", self.source_h)
+                obs_set_int(crop_settings, "left", 0)
+                obs_set_int(crop_settings, "top", 0)
+                obs_set_int(crop_settings, "cx", self.source_w)
+                obs_set_int(crop_settings, "cy", self.source_h)
                 self.update = False
         else:
             self.resetZO()
             if self.zi_timer < totalFrames:
                 self.zi_timer += 1
                 time = self.cubic_in_out(self.zi_timer / totalFrames)
-                i(s, "left", int(time * self.zoom_x))
-                i(s, "top", int(time * self.zoom_y))
-                i(
-                    s,
+                obs_set_int(crop_settings, "left", int(time * self.zoom_x))
+                obs_set_int(crop_settings, "top", int(time * self.zoom_y))
+                obs_set_int(
+                    crop_settings,
                     "cx",
                     self.source_w - int(time * (self.source_w - self.zoom_w)),
                 )
-                i(
-                    s,
+                obs_set_int(
+                    crop_settings,
                     "cy",
                     self.source_h - int(time * (self.source_h - self.zoom_h)),
                 )
                 self.update = True if time < 0.8 else False
             else:
-                i(s, "left", int(self.zoom_x))
-                i(s, "top", int(self.zoom_y))
-                i(s, "cx", int(self.zoom_w))
-                i(s, "cy", int(self.zoom_h))
+                obs_set_int(crop_settings, "left", int(self.zoom_x))
+                obs_set_int(crop_settings, "top", int(self.zoom_y))
+                obs_set_int(crop_settings, "cx", int(self.zoom_w))
+                obs_set_int(crop_settings, "cy", int(self.zoom_h))
                 self.update = False
 
-        obs.obs_source_update(crop, s)
+        obs.obs_source_update(crop, crop_settings)
 
-        obs.obs_data_release(s)
+        obs.obs_data_release(crop_settings)
         obs.obs_source_release(source)
         obs.obs_source_release(crop)
         if (inOut == 0) and (self.zo_timer >= totalFrames):
