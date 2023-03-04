@@ -482,6 +482,26 @@ class CursorWindow:
         elif self.zoom_y_target > y_max:
             self.zoom_y_target = y_max
 
+    def center_on_cursor(self):
+        """
+        Instantly sets the zoom window target location to have the cursor at its
+        center. If completely zoomed out (not interpolating) also sets the
+        current location, so there's no visible travel from where the previous
+        known location was when zooming in again.
+        """
+        mousePos = get_cursor_position()
+        self.zoom_x_target = mousePos.x - self.zoom_w * 0.5
+        self.zoom_y_target = mousePos.y - self.zoom_h * 0.5
+        # Clamp to a valid location inside the source limits
+        self.check_pos()
+
+        # Are we fully zoomed out?
+        if self.zi_timer == 0:
+            # Synchronize the current crop zoom location
+            self.zoom_x = self.zoom_x_target
+            self.zoom_y = self.zoom_y_target
+            print("Skip to cursor location")
+
     def obs_set_crop_settings(self, left, top, width, height):
         """
         Interfaces with OBS to set dimensions of the crop filter used for
@@ -885,14 +905,14 @@ def toggle_zoom(pressed):
             zoom.update_sources()
         if zoom.source_name != "" and not zoom.lock:
             zoom.update_source_size()
+            zoom.center_on_cursor()
             zoom.lock = True
             zoom.tick_enable()
+            print(f"Mouse position: {get_cursor_position()}")
         elif zoom.lock:
             zoom.lock = False
-            zoom.tick_enable()
+            zoom.tick_enable()  # For the zoom out transition
         print(f"Zoom: {zoom.lock}")
-        if zoom.lock:
-            print(f"Mouse position: {get_cursor_position()}")
 
 
 def toggle_follow(pressed):
