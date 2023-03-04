@@ -205,6 +205,8 @@ class CursorWindow:
         capture for Windows and Linux. In Windows, application data is
         stored as "Title:WindowClass:Executable"
         """
+        global new_source
+
         try:
             # Assuming the OBS data is formatted correctly, we should
             # be able to identify the window
