@@ -19,8 +19,15 @@ description = (
     "calculated as percent of smallest dimension. "
     + "Border of 50% keeps mouse locked in the center of the zoom"
     " frame\n\n"
+    + "Manual Monitor Dimensions constrain the zoom to just the area in the"
+    " defined size. Useful for only zooming in a smaller area in ultrawide"
+    " monitors, for instance.\n\n"
+    + "Manual Offset will move, relative to the top left of the monitor/source,"
+    " the constrained zoom area. In the ultrawide monitor example, this can be"
+    " used to offset the constrained area to be at the right of the screen,"
+    " preventing the zoom from following the cursor to the left side.\n\n"
     + "By tryptech (@yo_tryptech / tryptech#1112)\n\n"
-    + "v.2023.02.13"
+    + "v.2023.03.04"
 )
 
 
@@ -834,7 +841,7 @@ def script_properties():
     obs.obs_properties_add_int(props,
                                "Speed", "Max Scroll Speed", 0, 540, 10)
     obs.obs_properties_add_float_slider(props,
-                                        "Smooth", "Smooth", 0, 10, 1.00)
+                                        "Smooth", "Smooth", 0, 10, 0.1)
     obs.obs_properties_add_int_slider(props,
                                       "Zoom", "Zoom Duration (ms)", 0, 1000, 1)
 
