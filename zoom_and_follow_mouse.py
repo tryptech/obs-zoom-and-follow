@@ -9,6 +9,7 @@ from json import loads
 from math import sqrt
 from platform import system
 import pywinctl as pwc
+from pywinctl import Point
 import obspython as obs
 
 description = (
@@ -23,8 +24,9 @@ description = (
     + "v.2023.02.13"
 )
 
-c = pwc.getMousePos
-def get_cursor_position(): return [c().x, c().y]
+
+def get_cursor_position():
+    return pwc.getMousePos()
 
 
 zoom_id_tog = None
@@ -344,7 +346,8 @@ class CursorWindow:
                 self.source_x += self.source_x_override
                 self.source_y += self.source_y_override
 
-    def cubic_in_out(self, p):
+    @staticmethod
+    def cubic_in_out(p):
         """
         Cubic in/out easing function. Accelerates until halfway, then
         decelerates.
@@ -359,19 +362,18 @@ class CursorWindow:
             f = (2 * p) - 2
             return 0.5 * f * f * f + 1
 
-    def check_offset(self, arg1, arg2, smooth):
+    @staticmethod
+    def check_offset(arg1, arg2, smooth):
         """
         Checks if a given value is offset from pivot value and provides
         an adjustment towards the pivot based on a smoothing factor
 
         :param arg1: Pivot value
         :param arg2: Checked value
-        :param smooth: Smoothing factor; larger values adjusts more
-            smoothly
+        :param smooth: Smoothing factor; larger values adjusts more smoothly
         :return: Adjustment value
         """
-        result = round((arg1 - arg2) / smooth + 1)
-        return int(result)
+        return round((arg1 - arg2) / smooth)
 
     def follow(self, mousePos):
         """
@@ -381,93 +383,67 @@ class CursorWindow:
             all connected displays
         :return: If the zoom window was moved
         """
-        track = False
 
-        if ((mousePos[0] - (self.source_x + self.source_w) < 1)
-                and (mousePos[0] - self.source_x > -1)):
-            if ((mousePos[1] - (self.source_y + self.source_h) < 1)
-                    and (mousePos[1] - self.source_y > -1)):
-                track = True
+        # Don't move zoom window when mouse is outside the source
+        if mousePos.x > (self.source_x + self.source_w) \
+                or mousePos.x < self.source_x \
+                or mousePos.y > (self.source_y + self.source_h) \
+                or mousePos.y < self.source_y:
+            return False
 
-        if not track:
-            return track
-
-        move = False
-
-        # Find shortest dimension (usually height)
-        borderScale = min(self.zoom_w, self.zoom_h)
-        # Get active zone edges
-        zoom_edge_left = (self.zoom_x
-                          + int(self.active_border * borderScale))
-        zoom_edge_right = (self.zoom_x
-                           + self.zoom_w
-                           - int(self.active_border * borderScale))
-        zoom_edge_top = (self.zoom_y
-                         + int(self.active_border * borderScale))
-        zoom_edge_bottom = (self.zoom_y
-                            + self.zoom_h
-                            - int(self.active_border * borderScale))
-
-        if zoom.active_border >= 0.5:
-            zoom_edge_left = (self.zoom_x
-                              + int(self.active_border * self.zoom_w))
-            zoom_edge_right = (self.zoom_x
-                               + self.zoom_w
-                               - int(self.active_border * self.zoom_w))
-            zoom_edge_top = (self.zoom_y
-                             + int(self.active_border * self.zoom_h))
-            zoom_edge_bottom = (self.zoom_y
-                                + self.zoom_h
-                                - int(self.active_border * self.zoom_h))
-
-        # Clamp zone edges at center
-        if zoom_edge_right < zoom_edge_left:
-            zoom_edge_left = self.zoom_x + int(self.zoom_w/2.0)
-            zoom_edge_right = zoom_edge_left
-
-        if zoom_edge_bottom < zoom_edge_top:
-            zoom_edge_top = self.zoom_y + int(self.zoom_h/2.0)
-            zoom_edge_bottom = zoom_edge_top
+        # Get active zone edges in screen space
+        use_lazy_tracking = self.active_border < 0.5
+        if use_lazy_tracking:
+            # Find border size in pixels from shortest dimension (usually height)
+            border_size = int(min(self.zoom_w, self.zoom_h) * self.active_border)
+            zoom_edge_left = self.zoom_x + border_size
+            zoom_edge_right = self.zoom_x + self.zoom_w - border_size
+            zoom_edge_top = self.zoom_y + border_size
+            zoom_edge_bottom = self.zoom_y + self.zoom_h - border_size
+        else:
+            # Active zone edges are at the center of the zoom window to keep
+            # the cursor there at all times
+            zoom_edge_left = zoom_edge_right = self.zoom_x + int(self.zoom_w * 0.5)
+            zoom_edge_top = zoom_edge_bottom = self.zoom_y + int(self.zoom_h * 0.5)
 
         # Set smoothing values
-        smoothFactor = 1 if self.update else int((self.smooth * 9) / 10 + 1)
-
-        # Set x and y zoom offset
-        x_o = mousePos[0] - self.source_x
-        y_o = mousePos[1] - self.source_y
+        smoothFactor = 1.0 if self.update else max(1.0, self.smooth * 40 / self.refresh_rate)
 
         # Set x and y zoom offset
         offset_x = offset_y = 0
 
-        if x_o < zoom_edge_left:
-            offset_x = self.check_offset(x_o, zoom_edge_left, smoothFactor)
-            move = True
-        elif x_o > zoom_edge_right:
-            offset_x = self.check_offset(x_o, zoom_edge_right, smoothFactor)
-            move = True
+        # Cursor relative to the source, because the crop values are relative
+        source_mouse_x = mousePos.x - self.source_x
+        source_mouse_y = mousePos.y - self.source_y
 
-        if y_o < zoom_edge_top:
-            offset_y = self.check_offset(y_o, zoom_edge_top, smoothFactor)
-            move = True
-        elif y_o > zoom_edge_bottom:
-            offset_y = self.check_offset(y_o, zoom_edge_bottom, smoothFactor)
-            move = True
+        if source_mouse_x < zoom_edge_left:
+            offset_x = self.check_offset(source_mouse_x, zoom_edge_left, smoothFactor)
+        elif source_mouse_x > zoom_edge_right:
+            offset_x = self.check_offset(source_mouse_x, zoom_edge_right, smoothFactor)
 
-        # Max speed clamp
-        # if not self.update:
-        if self.active_border < 0.5:
-            speed_h = sqrt((offset_x**2)+(offset_y**2))
-            speed_factor = max(self.max_speed, speed_h)/float(self.max_speed)
-            if not self.update:
-                offset_x /= speed_factor
-                offset_y /= speed_factor
+        if source_mouse_y < zoom_edge_top:
+            offset_y = self.check_offset(source_mouse_y, zoom_edge_top, smoothFactor)
+        elif source_mouse_y > zoom_edge_bottom:
+            offset_y = self.check_offset(source_mouse_y, zoom_edge_bottom, smoothFactor)
+
+        # Max speed clamp. Don't clamp if animating zoom in/out or
+        # if keeping cursor in center of zoom window
+        if (not self.update) or use_lazy_tracking:
+            speed_squared = (offset_x * offset_x) + (offset_y * offset_y)
+            if speed_squared > (self.max_speed * self.max_speed):
+                # Only spend CPU on sqrt if we really need it
+                speed_factor = self.max_speed / sqrt(speed_squared)
+                offset_x *= speed_factor
+                offset_y *= speed_factor
 
         self.zoom_x += offset_x
         self.zoom_y += offset_y
-        if (self.active_border < 0.5):
+
+        # Only constrain zoom window to source when not centering mouse cursor
+        if use_lazy_tracking:
             self.check_pos()
 
-        return move
+        return offset_x != 0 or offset_y != 0
 
     def check_pos(self):
         """
