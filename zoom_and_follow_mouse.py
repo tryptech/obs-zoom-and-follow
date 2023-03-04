@@ -24,7 +24,7 @@ description = (
 )
 
 c = pwc.getMousePos
-def get_position(): return [c().x, c().y]
+def get_cursor_position(): return [c().x, c().y]
 
 
 zoom_id_tog = None
@@ -588,7 +588,7 @@ class CursorWindow:
         """
         if self.lock:
             if self.track or self.update:
-                self.follow(get_position())
+                self.follow(get_cursor_position())
         self.set_crop(int(self.lock))
 
     def tick(self):
@@ -883,7 +883,7 @@ def toggle_zoom(pressed):
             zoom.lock = False
         print(f"Zoom: {zoom.lock}")
         if zoom.lock:
-            print(f"Mouse position: {get_position()}")
+            print(f"Mouse position: {get_cursor_position()}")
 
 
 def toggle_follow(pressed):
