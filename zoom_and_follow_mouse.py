@@ -695,8 +695,9 @@ def script_update(settings):
         sources = obs.obs_enum_sources()
         if len(sources) == 0:
             print("No sources, likely OBS startup.")
-    zoom.update_source_size()
-    print("Source Name: " + zoom.source_name)
+    else:
+        zoom.update_source_size()
+        print("Source Name: " + zoom.source_name)
 
     zoom.zoom_w = obs.obs_data_get_int(settings, "Width")
     zoom.zoom_h = obs.obs_data_get_int(settings, "Height")
