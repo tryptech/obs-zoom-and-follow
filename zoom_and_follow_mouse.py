@@ -76,7 +76,9 @@ SOURCES = CaptureSources(
 
 
 class CursorWindow:
-    flag = lock = track = update = True
+    # Activate zoom mode?
+    lock = False
+    track = update = True
     zi_timer = zo_timer = 0
     windows = window_titles = monitor = window = window_handle \
         = window_name = ''
@@ -873,13 +875,11 @@ def toggle_zoom(pressed):
     if pressed:
         if new_source:
             zoom.update_sources()
-        if zoom.source_name != "" and zoom.flag:
+        if zoom.source_name != "" and not zoom.lock:
             zoom.update_source_size()
             obs.timer_add(zoom.tick, zoom.refresh_rate)
             zoom.lock = True
-            zoom.flag = False
-        elif not zoom.flag:
-            zoom.flag = True
+        elif zoom.lock:
             zoom.lock = False
         print(f"Zoom: {zoom.lock}")
         if zoom.lock:
