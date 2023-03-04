@@ -76,11 +76,11 @@ SOURCES = CaptureSources(
 
 
 class CursorWindow:
-    # Activate zoom mode?
-    lock = False
-    track = update = True
-    ticking = False
-    zi_timer = zo_timer = 0
+    lock = False  # Activate zoom mode?
+    track = True  # Follow mouse cursor while in zoom mode?
+    update = True  # Animating between zoom in and out?
+    ticking = False  # To prevent subscribing to timer multiple times
+    zi_timer = zo_timer = 0  # Frames spent on zoom in/out animations
     windows = window_titles = monitor = window = window_handle \
         = window_name = ''
     monitors = pwc.getAllScreens()
@@ -573,8 +573,8 @@ class CursorWindow:
         obs.obs_source_release(source)
         obs.obs_source_release(crop)
 
-        # Stop ticking when we completed the zoom out or when we're zoomed in
-        # and not following the cursor
+        # Stop ticking when zoom out is complete or
+        # when zoomed in and not following the cursor
         if ((not self.lock) and (self.zo_timer >= totalFrames)) \
                 or (self.lock and (not self.track) and (self.zi_timer >= totalFrames)):
             self.tick_disable()
@@ -584,7 +584,6 @@ class CursorWindow:
             return
 
         obs.timer_add(self.tick, self.refresh_rate)
-
         self.ticking = True
         print(f"Ticking: {self.ticking}")
 
