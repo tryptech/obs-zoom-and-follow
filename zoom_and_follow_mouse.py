@@ -343,18 +343,6 @@ class CursorWindow:
                 self.source_x += self.source_x_override
                 self.source_y += self.source_y_override
 
-    def resetZI(self):
-        """
-        Reset the zoom-in timer
-        """
-        self.zi_timer = 0
-
-    def resetZO(self):
-        """
-        Reset the zoom-out timer
-        """
-        self.zo_timer = 0
-
     def cubic_in_out(self, p):
         """
         Cubic in/out easing function. Accelerates until halfway, then
@@ -528,9 +516,10 @@ class CursorWindow:
 
         if not self.lock:
             # Zooming out
-            self.resetZI()
             if self.zo_timer < totalFrames:
                 self.zo_timer += 1
+                # Zoom in will start from same animation position
+                self.zi_timer = totalFrames - self.zo_timer
                 time = self.cubic_in_out(self.zo_timer / totalFrames)
                 obs_set_int(crop_settings, "left", int(((1 - time) * self.zoom_x)))
                 obs_set_int(crop_settings, "top", int(((1 - time) * self.zoom_y)))
@@ -553,9 +542,10 @@ class CursorWindow:
                 self.update = False
         else:
             # Zooming in
-            self.resetZO()
             if self.zi_timer < totalFrames:
                 self.zi_timer += 1
+                # Zoom out will start from same animation position
+                self.zo_timer = totalFrames - self.zi_timer
                 time = self.cubic_in_out(self.zi_timer / totalFrames)
                 obs_set_int(crop_settings, "left", int(time * self.zoom_x))
                 obs_set_int(crop_settings, "top", int(time * self.zoom_y))
