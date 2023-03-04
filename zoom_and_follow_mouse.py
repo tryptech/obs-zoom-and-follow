@@ -397,11 +397,11 @@ class CursorWindow:
         :return: If the zoom window was moved
         """
 
-        # Don't move zoom window when mouse is outside the source
-        if mousePos.x > (self.source_x + self.source_w) \
-                or mousePos.x < self.source_x \
-                or mousePos.y > (self.source_y + self.source_h) \
-                or mousePos.y < self.source_y:
+        # Don't follow cursor when it is outside the source in both dimensions
+        if (mousePos.x > (self.source_x + self.source_w)
+            or mousePos.x < self.source_x) \
+                and (mousePos.y > (self.source_y + self.source_h)
+                     or mousePos.y < self.source_y):
             return False
 
         # Get active zone edges relative to the source
