@@ -90,6 +90,7 @@ class CursorWindow:
     monitor_override = manual_offset = monitor_size_override = False
     monitor_override_id = ''
     zoom_x = zoom_y = 0  # Zoomed-in window top left location
+    zoom_x_target = zoom_y_target = 0  # Interpolate the above towards these
     # Actual source (window or monitor) location and dimensions from the system
     source_w_raw = source_h_raw = source_x_raw = source_y_raw = 0
     # Overriden source location and dimensions from settings
@@ -409,35 +410,43 @@ class CursorWindow:
         if use_lazy_tracking:
             # Find border size in pixels from shortest dimension (usually height)
             border_size = int(min(self.zoom_w, self.zoom_h) * self.active_border)
-            zoom_edge_left = self.zoom_x + border_size
-            zoom_edge_right = self.zoom_x + self.zoom_w - border_size
-            zoom_edge_top = self.zoom_y + border_size
-            zoom_edge_bottom = self.zoom_y + self.zoom_h - border_size
+            zoom_edge_left = self.zoom_x_target + border_size
+            zoom_edge_right = self.zoom_x_target + self.zoom_w - border_size
+            zoom_edge_top = self.zoom_y_target + border_size
+            zoom_edge_bottom = self.zoom_y_target + self.zoom_h - border_size
         else:
             # Active zone edges are at the center of the zoom window to keep
             # the cursor there at all times
-            zoom_edge_left = zoom_edge_right = self.zoom_x + int(self.zoom_w * 0.5)
-            zoom_edge_top = zoom_edge_bottom = self.zoom_y + int(self.zoom_h * 0.5)
-
-        # Set smoothing values
-        smoothFactor = 1.0 if self.update else max(1.0, self.smooth * 40 / self.refresh_rate)
-
-        # Set x and y zoom offset
-        offset_x = offset_y = 0
+            zoom_edge_left = zoom_edge_right = \
+                self.zoom_x_target + int(self.zoom_w * 0.5)
+            zoom_edge_top = zoom_edge_bottom = \
+                self.zoom_y_target + int(self.zoom_h * 0.5)
 
         # Cursor relative to the source, because the crop values are relative
         source_mouse_x = mousePos.x - self.source_x_raw
         source_mouse_y = mousePos.y - self.source_y_raw
 
         if source_mouse_x < zoom_edge_left:
-            offset_x = self.check_offset(source_mouse_x, zoom_edge_left, smoothFactor)
+            self.zoom_x_target += source_mouse_x - zoom_edge_left
         elif source_mouse_x > zoom_edge_right:
-            offset_x = self.check_offset(source_mouse_x, zoom_edge_right, smoothFactor)
+            self.zoom_x_target += source_mouse_x - zoom_edge_right
 
         if source_mouse_y < zoom_edge_top:
-            offset_y = self.check_offset(source_mouse_y, zoom_edge_top, smoothFactor)
+            self.zoom_y_target += source_mouse_y - zoom_edge_top
         elif source_mouse_y > zoom_edge_bottom:
-            offset_y = self.check_offset(source_mouse_y, zoom_edge_bottom, smoothFactor)
+            self.zoom_y_target += source_mouse_y - zoom_edge_bottom
+
+        # Only constrain zoom window to source when not centering mouse cursor
+        if use_lazy_tracking:
+            self.check_pos()
+
+        # Set smoothing values
+        smoothFactor = 1.0 if self.update else \
+            max(1.0, self.smooth * 40 / self.refresh_rate)
+
+        # Set x and y zoom offset
+        offset_x = (self.zoom_x_target - self.zoom_x) / smoothFactor
+        offset_y = (self.zoom_y_target - self.zoom_y) / smoothFactor
 
         # Max speed clamp. Don't clamp if animating zoom in/out or
         # if keeping cursor in center of zoom window
@@ -449,12 +458,9 @@ class CursorWindow:
                 offset_x *= speed_factor
                 offset_y *= speed_factor
 
+        # Interpolate the values we apply to the crop filter
         self.zoom_x += offset_x
         self.zoom_y += offset_y
-
-        # Only constrain zoom window to source when not centering mouse cursor
-        if use_lazy_tracking:
-            self.check_pos()
 
         return offset_x != 0 or offset_y != 0
 
@@ -467,14 +473,14 @@ class CursorWindow:
         y_min = self.source_y
         y_max = self.source_h + self.source_y - self.zoom_h
 
-        if self.zoom_x < x_min:
-            self.zoom_x = x_min
-        elif self.zoom_x > x_max:
-            self.zoom_x = x_max
-        if self.zoom_y < y_min:
-            self.zoom_y = y_min
-        elif self.zoom_y > y_max:
-            self.zoom_y = y_max
+        if self.zoom_x_target < x_min:
+            self.zoom_x_target = x_min
+        elif self.zoom_x_target > x_max:
+            self.zoom_x_target = x_max
+        if self.zoom_y_target < y_min:
+            self.zoom_y_target = y_min
+        elif self.zoom_y_target > y_max:
+            self.zoom_y_target = y_max
 
     def obs_set_crop_settings(self, left, top, width, height):
         """
