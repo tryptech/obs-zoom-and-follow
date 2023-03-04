@@ -9,7 +9,6 @@ from json import loads
 from math import sqrt
 from platform import system
 import pywinctl as pwc
-from pywinctl import Point
 import obspython as obs
 
 description = (
@@ -90,8 +89,15 @@ class CursorWindow:
     monitors_key = list(dict.keys(monitors))
     monitor_override = manual_offset = monitor_size_override = False
     monitor_override_id = ''
-    source_w = source_h = source_x = source_y = zoom_x = zoom_y \
-        = source_x_override = source_y_override = 0
+    zoom_x = zoom_y = 0  # Zoomed-in window top left location
+    # Actual source (window or monitor) location and dimensions from the system
+    source_w_raw = source_h_raw = source_x_raw = source_y_raw = 0
+    # Overriden source location and dimensions from settings
+    source_x_offset = source_y_offset \
+        = source_w_override = source_h_override = 0
+    # Computed source location and dimensions that depend on whether override
+    # settings are enabled.
+    source_x = source_y = source_w = source_h = 0
     refresh_rate = 16
     source_name = source_type = ''
     zoom_w = 1280
@@ -123,22 +129,22 @@ class CursorWindow:
             # NSInternalInconsistencyException - NSWindow drag regions
             # should only be invalidated on the Main Thread!
             window_dim = window.getClientFrame()
-            if (self.source_w != window_dim.right - window_dim.left
-                or self.source_h != window_dim.bottom - window_dim.top
-                or self.source_x != window_dim.left
-                    or self.source_y != window_dim.top):
+            if (self.source_w_raw != window_dim.right - window_dim.left
+                or self.source_h_raw != window_dim.bottom - window_dim.top
+                or self.source_x_raw != window_dim.left
+                    or self.source_y_raw != window_dim.top):
                 print("OLD")
                 print("Width, Height, X, Y")
-                print(f"{self.source_w}, {self.source_h}, {self.source_x},"
-                      f" {self.source_y}")
-                self.source_w = window_dim.right - window_dim.left
-                self.source_h = window_dim.bottom - window_dim.top
-                self.source_x = window_dim.left
-                self.source_y = window_dim.top
+                print(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw},"
+                      f" {self.source_y_raw}")
+                self.source_w_raw = window_dim.right - window_dim.left
+                self.source_h_raw = window_dim.bottom - window_dim.top
+                self.source_x_raw = window_dim.left
+                self.source_y_raw = window_dim.top
                 print("NEW")
                 print("Width, Height, X, Y")
-                print(f"{self.source_w}, {self.source_h}, {self.source_x},"
-                      f" {self.source_y}")
+                print(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw},"
+                      f" {self.source_y_raw}")
             else:
                 print("Dimensions did not change")
 
@@ -149,35 +155,26 @@ class CursorWindow:
         :param monitor: Single monitor as returned from the PyWinCtl
             Monitor function getAllScreens()
         """
-        if self.monitor_size_override:
-            print("Manual monitor size enabled")
-            print("Dimensions set to:")
+        print(
+            f"Updating stored dimensions to match monitor's dimensions | {monitor}")
+        if (self.source_w_raw != monitor['size'].width
+            or self.source_h_raw != monitor['size'].height
+            or self.source_x_raw != monitor['pos'].x
+                or self.source_y_raw != monitor['pos'].y):
+            print("OLD")
             print("Width, Height, X, Y")
-            self.source_x = monitor['pos'].x
-            self.source_y = monitor['pos'].y
-            print(f"{self.source_w}, {self.source_h}, {self.source_x}, \
-                {self.source_y}")
+            print(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw}, \
+                {self.source_y_raw}")
+            self.source_w_raw = monitor['size'].width
+            self.source_h_raw = monitor['size'].height
+            self.source_x_raw = monitor['pos'].x
+            self.source_y_raw = monitor['pos'].y
+            print("NEW")
+            print("Width, Height, X, Y")
+            print(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw}, \
+                {self.source_y_raw}")
         else:
-            print(
-                f"Updating stored dimensions to match monitor's dimensions | {monitor}")
-            if (self.source_w != monitor['size'].width
-                or self.source_h != monitor['size'].height
-                or self.source_x != monitor['pos'].x
-                    or self.source_y != monitor['pos'].y):
-                print("OLD")
-                print("Width, Height, X, Y")
-                print(f"{self.source_w}, {self.source_h}, {self.source_x}, \
-                    {self.source_y}")
-                self.source_w = monitor['size'].width
-                self.source_h = monitor['size'].height
-                self.source_x = monitor['pos'].x
-                self.source_y = monitor['pos'].y
-                print("NEW")
-                print("Width, Height, X, Y")
-                print(f"{self.source_w}, {self.source_h}, {self.source_x}, \
-                    {self.source_y}")
-            else:
-                print("Dimensions did not change")
+            print("Dimensions did not change")
 
     def window_capture_mac(self, data):
         """
@@ -341,10 +338,26 @@ class CursorWindow:
                 self.monitor_capture_gen(data)
             elif (self.source_type in SOURCES.monitor.macos):
                 self.monitor_capture_mac(data)
-            if (self.manual_offset
-                    or self.monitor_size_override):
-                self.source_x += self.source_x_override
-                self.source_y += self.source_y_override
+
+            self.update_computed_source_values()
+
+    def update_computed_source_values(self):
+        """
+        Compute source location and size with optional overrides applied
+        """
+        if self.manual_offset:
+            self.source_x = self.source_x_raw + self.source_x_offset
+            self.source_y = self.source_y_raw + self.source_y_offset
+        else:
+            self.source_x = self.source_x_raw
+            self.source_y = self.source_y_raw
+
+        if self.monitor_size_override:
+            self.source_w = self.source_w_override
+            self.source_h = self.source_h_override
+        else:
+            self.source_w = self.source_w_raw
+            self.source_h = self.source_h_raw
 
     @staticmethod
     def cubic_in_out(p):
@@ -391,7 +404,7 @@ class CursorWindow:
                 or mousePos.y < self.source_y:
             return False
 
-        # Get active zone edges in screen space
+        # Get active zone edges relative to the source
         use_lazy_tracking = self.active_border < 0.5
         if use_lazy_tracking:
             # Find border size in pixels from shortest dimension (usually height)
@@ -413,8 +426,8 @@ class CursorWindow:
         offset_x = offset_y = 0
 
         # Cursor relative to the source, because the crop values are relative
-        source_mouse_x = mousePos.x - self.source_x
-        source_mouse_y = mousePos.y - self.source_y
+        source_mouse_x = mousePos.x - self.source_x_raw
+        source_mouse_y = mousePos.y - self.source_y_raw
 
         if source_mouse_x < zoom_edge_left:
             offset_x = self.check_offset(source_mouse_x, zoom_edge_left, smoothFactor)
@@ -447,19 +460,12 @@ class CursorWindow:
 
     def check_pos(self):
         """
-        Checks if zoom window exceeds window dimensions and clamps it if
-        true
+        Checks if zoom window exceeds window dimensions and clamps it if true
         """
-        if not self.monitor_size_override:
-            x_min = 0
-            x_max = self.source_w - self.zoom_w
-            y_min = 0
-            y_max = self.source_h - self.zoom_h
-        else:
-            x_min = self.source_x_override
-            x_max = self.source_w - self.zoom_w + self.source_x_override
-            y_min = self.source_y_override
-            y_max = self.source_h - self.zoom_h + self.source_y_override
+        x_min = self.source_x
+        x_max = self.source_w + self.source_x - self.zoom_w
+        y_min = self.source_y
+        y_max = self.source_h + self.source_y - self.zoom_h
 
         if self.zoom_x < x_min:
             self.zoom_x = x_min
@@ -527,13 +533,13 @@ class CursorWindow:
                 time = self.cubic_in_out(self.zo_timer / totalFrames)
                 crop_left = int(((1 - time) * self.zoom_x))
                 crop_top = int(((1 - time) * self.zoom_y))
-                crop_width = self.zoom_w + int(time * (self.source_w - self.zoom_w))
-                crop_height = self.zoom_h + int(time * (self.source_h - self.zoom_h))
+                crop_width = self.zoom_w + int(time * (self.source_w_raw - self.zoom_w))
+                crop_height = self.zoom_h + int(time * (self.source_h_raw - self.zoom_h))
                 self.update = True
             else:
                 # Leave crop left and top as 0
-                crop_width = self.source_w
-                crop_height = self.source_h
+                crop_width = self.source_w_raw
+                crop_height = self.source_h_raw
                 self.update = False
         else:
             # Zooming in
@@ -544,8 +550,8 @@ class CursorWindow:
                 time = self.cubic_in_out(self.zi_timer / totalFrames)
                 crop_left = int(time * self.zoom_x)
                 crop_top = int(time * self.zoom_y)
-                crop_width = self.source_w - int(time * (self.source_w - self.zoom_w))
-                crop_height = self.source_h - int(time * (self.source_h - self.zoom_h))
+                crop_width = self.source_w_raw - int(time * (self.source_w_raw - self.zoom_w))
+                crop_height = self.source_h_raw - int(time * (self.source_h_raw - self.zoom_h))
                 self.update = True if time < 0.8 else False
             else:
                 crop_left = int(self.zoom_x)
@@ -621,6 +627,25 @@ def script_defaults(settings):
 def script_update(settings):
     global new_source
 
+    # Update overrides before source, so the updated overrides are used
+    # in update_source_size
+    zoom.monitor_override = obs.obs_data_get_bool(settings,
+                                                  "Manual Monitor Override")
+    zoom.monitor_override_id = obs.obs_data_get_int(settings, "monitor")
+    zoom.monitor_size_override = obs.obs_data_get_bool(settings,
+                                                       "Manual Monitor Dim")
+    if zoom.monitor_size_override:
+        zoom.source_w_override = obs.obs_data_get_int(settings,
+                                                      "Monitor Width")
+        zoom.source_h_override = obs.obs_data_get_int(settings,
+                                                      "Monitor Height")
+    zoom.manual_offset = obs.obs_data_get_bool(settings, "Manual Offset")
+    if zoom.manual_offset:
+        zoom.source_x_offset = obs.obs_data_get_int(settings,
+                                                    "Manual X Offset")
+        zoom.source_y_offset = obs.obs_data_get_int(settings,
+                                                    "Manual Y Offset")
+
     source_string = obs.obs_data_get_string(settings, "source")
     if source_string == "":
         zoom.source_name = zoom.source_type = ""
@@ -637,33 +662,15 @@ def script_update(settings):
         sources = obs.obs_enum_sources()
         if len(sources) == 0:
             print("No sources, likely OBS startup.")
-    else:
-        print("Non-initial update")
-        zoom.update_source_size()
+    zoom.update_source_size()
     print("Source Name: " + zoom.source_name)
-    zoom.monitor_override = obs.obs_data_get_bool(settings,
-                                                  "Manual Monitor Override")
-    zoom.monitor_override_id = obs.obs_data_get_int(settings, "monitor")
-    zoom.monitor_size_override = obs.obs_data_get_bool(settings,
-                                                       "Manual Monitor Dim")
-    if zoom.monitor_size_override:
-        zoom.source_w = obs.obs_data_get_int(settings, "Monitor Width")
-        zoom.source_h = obs.obs_data_get_int(settings, "Monitor Height")
-    zoom.manual_offset = obs.obs_data_get_bool(settings, "Manual Offset")
+
     zoom.zoom_w = obs.obs_data_get_int(settings, "Width")
     zoom.zoom_h = obs.obs_data_get_int(settings, "Height")
     zoom.active_border = obs.obs_data_get_double(settings, "Border")
     zoom.max_speed = obs.obs_data_get_int(settings, "Speed")
     zoom.smooth = obs.obs_data_get_double(settings, "Smooth")
     zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
-    if zoom.monitor_size_override or zoom.manual_offset:
-        zoom.source_x_override = obs.obs_data_get_int(settings,
-                                                      "Manual X Offset")
-        zoom.source_y_override = obs.obs_data_get_int(settings,
-                                                      "Manual Y Offset")
-    else:
-        zoom.source_x_override = 0
-        zoom.source_y_override = 0
 
 
 def populate_list_property_with_source_names(list_property):
