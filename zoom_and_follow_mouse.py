@@ -35,6 +35,7 @@ FOLLOW_NAME_TOG = "follow.toggle"
 ZOOM_DESC_TOG = "Enable/Disable Mouse Zoom"
 FOLLOW_DESC_TOG = "Enable/Disable Mouse Follow"
 USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
+CROP_FILTER_NAME = "ZoomCrop"
 
 
 # -------------------------------------------------------------------
@@ -493,26 +494,53 @@ class CursorWindow:
         elif self.zoom_y > y_max:
             self.zoom_y = y_max
 
-    def set_crop(self):
+    def obs_set_crop_settings(self, left, top, width, height):
         """
-        Set dimensions of the crop filter used for zooming
-        """
-        totalFrames = int(self.zoom_time / self.refresh_rate)
+        Interfaces with OBS to set dimensions of the crop filter used for
+        zooming, creating the filter if necessary.
 
+        :param left: crop filter new left edge location in pixels
+        :param top: crop filter new top edge location in pixels
+        :param width: crop filter new width in pixels
+        :param height: crop filter new height in pixels
+        """
         source = obs.obs_get_source_by_name(self.source_name)
-        crop = obs.obs_source_get_filter_by_name(source, "ZoomCrop")
+        crop = obs.obs_source_get_filter_by_name(source, CROP_FILTER_NAME)
 
         if crop is None:  # create filter
             obs_data = obs.obs_data_create()
             obs.obs_data_set_bool(obs_data, "relative", False)
-            obs_crop_filter = obs.obs_source_create_private("crop_filter",
-                                              "ZoomCrop", obs_data)
+            obs_crop_filter = obs.obs_source_create_private(
+                "crop_filter",
+                CROP_FILTER_NAME,
+                obs_data)
             obs.obs_source_filter_add(source, obs_crop_filter)
             obs.obs_source_release(obs_crop_filter)
             obs.obs_data_release(obs_data)
 
         crop_settings = obs.obs_source_get_settings(crop)
-        obs_set_int = obs.obs_data_set_int
+
+        def set_crop_setting(name, value):
+            obs.obs_data_set_int(crop_settings, name, value)
+
+        set_crop_setting("left", left)
+        set_crop_setting("top", top)
+        set_crop_setting("cx", width)
+        set_crop_setting("cy", height)
+
+        obs.obs_source_update(crop, crop_settings)
+
+        obs.obs_data_release(crop_settings)
+        obs.obs_source_release(source)
+        obs.obs_source_release(crop)
+
+    def set_crop(self):
+        """
+        Compute rectangle of the zoom window, interpolating for zoom in and out
+        transitions and update the crop filter used for zooming in the source.
+        """
+        totalFrames = int(self.zoom_time / self.refresh_rate)
+        crop_left = crop_top = crop_width = crop_height = 0
 
         if not self.lock:
             # Zooming out
@@ -521,24 +549,15 @@ class CursorWindow:
                 # Zoom in will start from same animation position
                 self.zi_timer = totalFrames - self.zo_timer
                 time = self.cubic_in_out(self.zo_timer / totalFrames)
-                obs_set_int(crop_settings, "left", int(((1 - time) * self.zoom_x)))
-                obs_set_int(crop_settings, "top", int(((1 - time) * self.zoom_y)))
-                obs_set_int(
-                    crop_settings,
-                    "cx",
-                    self.zoom_w + int(time * (self.source_w - self.zoom_w)),
-                )
-                obs_set_int(
-                    crop_settings,
-                    "cy",
-                    self.zoom_h + int(time * (self.source_h - self.zoom_h)),
-                )
+                crop_left = int(((1 - time) * self.zoom_x))
+                crop_top = int(((1 - time) * self.zoom_y))
+                crop_width = self.zoom_w + int(time * (self.source_w - self.zoom_w))
+                crop_height = self.zoom_h + int(time * (self.source_h - self.zoom_h))
                 self.update = True
             else:
-                obs_set_int(crop_settings, "left", 0)
-                obs_set_int(crop_settings, "top", 0)
-                obs_set_int(crop_settings, "cx", self.source_w)
-                obs_set_int(crop_settings, "cy", self.source_h)
+                # Leave crop left and top as 0
+                crop_width = self.source_w
+                crop_height = self.source_h
                 self.update = False
         else:
             # Zooming in
@@ -547,31 +566,19 @@ class CursorWindow:
                 # Zoom out will start from same animation position
                 self.zo_timer = totalFrames - self.zi_timer
                 time = self.cubic_in_out(self.zi_timer / totalFrames)
-                obs_set_int(crop_settings, "left", int(time * self.zoom_x))
-                obs_set_int(crop_settings, "top", int(time * self.zoom_y))
-                obs_set_int(
-                    crop_settings,
-                    "cx",
-                    self.source_w - int(time * (self.source_w - self.zoom_w)),
-                )
-                obs_set_int(
-                    crop_settings,
-                    "cy",
-                    self.source_h - int(time * (self.source_h - self.zoom_h)),
-                )
+                crop_left = int(time * self.zoom_x)
+                crop_top = int(time * self.zoom_y)
+                crop_width = self.source_w - int(time * (self.source_w - self.zoom_w))
+                crop_height = self.source_h - int(time * (self.source_h - self.zoom_h))
                 self.update = True if time < 0.8 else False
             else:
-                obs_set_int(crop_settings, "left", int(self.zoom_x))
-                obs_set_int(crop_settings, "top", int(self.zoom_y))
-                obs_set_int(crop_settings, "cx", int(self.zoom_w))
-                obs_set_int(crop_settings, "cy", int(self.zoom_h))
+                crop_left = int(self.zoom_x)
+                crop_top = int(self.zoom_y)
+                crop_width = int(self.zoom_w)
+                crop_height = int(self.zoom_h)
                 self.update = False
 
-        obs.obs_source_update(crop, crop_settings)
-
-        obs.obs_data_release(crop_settings)
-        obs.obs_source_release(source)
-        obs.obs_source_release(crop)
+        self.obs_set_crop_settings(crop_left, crop_top, crop_width, crop_height)
 
         # Stop ticking when zoom out is complete or
         # when zoomed in and not following the cursor
