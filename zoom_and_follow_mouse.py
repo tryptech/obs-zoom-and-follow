@@ -32,11 +32,10 @@ description = (
     + f"{version}"
 )
 
-
 def get_cursor_position():
     return pwc.getMousePos()
 
-
+sys = system()
 zoom_id_tog = None
 follow_id_tog = None
 new_source = True
@@ -128,7 +127,7 @@ class CursorWindow:
         """
         Update the list of Windows and Monitors from PyWinCtl
         """
-        if not (system() == "Darwin") or not settings_update:
+        if not (sys == "Darwin") or not settings_update:
             self.windows = pwc.getAllWindows()
             self.monitors = pwc.getAllScreens()
             self.monitors_key = list(dict.keys(self.monitors))
@@ -449,8 +448,8 @@ class CursorWindow:
 
         # When the mouse goes to the left edge or top edge of a Mac display, the cursor is set to 0,0
         # This attempts to ignore the mouse coordinates are set to that value on Mac only.
-        if system() == 'Darwin' and (mousePos[0] == 0 and mousePos[1] == 0):
-            track = False
+        if sys == 'Darwin' and (mousePos[0] == 0 or mousePos[1] == 0):
+            return False
 
         # Get active zone edges relative to the source
         use_lazy_tracking = self.active_border < 0.5
@@ -759,12 +758,12 @@ def populate_list_property_with_source_names(list_property):
     print("Updating Source List")
     zoom.update_sources()
     sources = obs.obs_enum_sources()
-    print(f"System: {system()}")
+    print(f"System: {sys}")
     if sources is not None:
         obs.obs_property_list_clear(list_property)
         obs.obs_property_list_add_string(list_property, "", "")
         for source in sources:
-            if system() == "Darwin":
+            if sys == "Darwin":
                 print(f"{obs.obs_source_get_name(source)} | {source}")
             # Print this value if a source isn't showing in the UI as expected
             # and add it to SOURCES above for either window or monitor capture.
@@ -805,7 +804,7 @@ def callback(props, prop, *args):
             obs.obs_property_set_visible(monitor_override, True)
             obs.obs_property_set_visible(refresh_monitor, True)
             obs.obs_property_set_visible(monitor_size_override, True)
-            if system() == "Darwin":
+            if sys == "Darwin":
                 zoom.update_source_size()
         else:
             obs.obs_property_set_visible(monitor_override, False)
@@ -932,7 +931,7 @@ def script_load(settings):
     hotkey_save_array = obs.obs_data_get_array(settings, FOLLOW_NAME_TOG)
     obs.obs_hotkey_load(follow_id_tog, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
-    if system() != "Darwin":
+    if sys != "Darwin":
         zoom.update_sources()
         zoom.new_source = True
 
