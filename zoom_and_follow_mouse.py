@@ -1,3 +1,5 @@
+version = "v.2023.03.25"
+
 """
 This script is intended to be called from OBS Studio. Provides
 mouse-based zoom and tracking for desktop/monitor/window/game sources.
@@ -20,7 +22,7 @@ description = (
     + "Border of 50% keeps mouse locked in the center of the zoom"
     " frame\n\n"
     + "By tryptech (@yo_tryptech / tryptech#1112)\n\n"
-    + "v.2023.02.20"
+    + f"{version}"
 )
 
 c = pwc.getMousePos
