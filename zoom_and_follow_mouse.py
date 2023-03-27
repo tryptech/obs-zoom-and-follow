@@ -241,7 +241,7 @@ class CursorWindow:
                     self.update_monitor_dim(monitor[1])
 
 
-    def window_capture_generic(self, data):
+    def window_capture_gen(self, data):
         """
         TODO: More Linux testing, specifically with handles Windows
         capture for Windows and Linux. In Windows, application data is
@@ -302,7 +302,7 @@ class CursorWindow:
             window_match = None
         return window_match
 
-    def monitor_capture_generic(self, data):
+    def monitor_capture_gen(self, data):
         """
         If monitor override, update with monitor override
         Else if no monitor ID, monitor does not exist
