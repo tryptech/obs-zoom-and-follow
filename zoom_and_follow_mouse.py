@@ -1,4 +1,4 @@
-version = "v.2023.03.25"
+version = "v.2023.03.26"
 
 """
 This script is intended to be called from OBS Studio. Provides
