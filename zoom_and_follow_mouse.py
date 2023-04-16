@@ -853,8 +853,7 @@ def callback(props, prop, *args):
             obs.obs_property_set_visible(monitor_override, True)
             obs.obs_property_set_visible(refresh_monitor, True)
             obs.obs_property_set_visible(monitor_size_override, True)
-            if sys == "Darwin":
-                zoom.update_source_size()
+            zoom.update_source_size()
         else:
             obs.obs_property_set_visible(monitor_override, False)
             obs.obs_property_set_visible(refresh_monitor, False)
@@ -1040,7 +1039,7 @@ def script_save(settings):
         hotkey_save_array = obs.obs_hotkey_save(load_sources_hk)
         obs.obs_data_set_array(settings, LOAD_SOURCES_NAME_HK, hotkey_save_array)
         obs.obs_data_array_release(hotkey_save_array)
-    
+
         hotkey_save_array = obs.obs_hotkey_save(load_monitors_hk)
         obs.obs_data_set_array(settings, LOAD_MONITORS_NAME_HK, hotkey_save_array)
         obs.obs_data_array_release(hotkey_save_array)
