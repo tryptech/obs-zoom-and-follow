@@ -38,7 +38,7 @@ def get_cursor_position():
 
 def log(s):
     global debug
-    if True:
+    if debug:
         print(s)
 
 sys = system()
