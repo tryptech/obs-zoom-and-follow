@@ -44,11 +44,18 @@ def log(s):
 sys = system()
 zoom_id_tog = None
 follow_id_tog = None
-new_source = True
+load_sources_hk = None
+load_monitors_hk = None
+new_source = False
+props = None
 ZOOM_NAME_TOG = "zoom.toggle"
 FOLLOW_NAME_TOG = "follow.toggle"
+LOAD_SOURCES_NAME_HK = "sources.hk"
+LOAD_MONITORS_NAME_HK = "monitors.hk"
 ZOOM_DESC_TOG = "Enable/Disable Mouse Zoom"
 FOLLOW_DESC_TOG = "Enable/Disable Mouse Follow"
+LOAD_SOURCES_DESC_HK = "Load Sources"
+LOAD_MONITORS_DESC_HK = "Load Monitors"
 USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
 CROP_FILTER_NAME = "ZoomCrop"
 
@@ -944,14 +951,35 @@ def script_load(settings):
     hotkey_save_array = obs.obs_data_get_array(settings, FOLLOW_NAME_TOG)
     obs.obs_hotkey_load(follow_id_tog, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
-    if sys != "Darwin":
-        zoom.update_sources()
-        zoom.new_source = True
+
+    if sys == 'Darwin':
+        global load_sources_hk
+        load_sources_hk = obs.obs_hotkey_register_frontend(
+            LOAD_SOURCES_NAME_HK, LOAD_SOURCES_DESC_HK, press_load_sources
+        )
+        hotkey_save_array = obs.obs_data_get_array(settings, LOAD_SOURCES_NAME_HK)
+        obs.obs_hotkey_load(load_sources_hk, hotkey_save_array)
+        obs.obs_data_array_release(hotkey_save_array)
+
+        global load_monitors_hk
+        load_monitors_hk = obs.obs_hotkey_register_frontend(
+            LOAD_MONITORS_NAME_HK, LOAD_MONITORS_DESC_HK, press_load_monitors
+        )
+        hotkey_save_array = obs.obs_data_get_array(settings, LOAD_MONITORS_NAME_HK)
+        obs.obs_hotkey_load(load_monitors_hk, hotkey_save_array)
+        obs.obs_data_array_release(hotkey_save_array)
+
+    
+    zoom.update_sources()
+    zoom.new_source = True
 
 
 def script_unload():
     obs.obs_hotkey_unregister(toggle_zoom)
     obs.obs_hotkey_unregister(toggle_follow)
+    if sys == 'Darwin':
+        obs.obs_hotkey_unregister(press_load_sources)
+        obs.obs_hotkey_unregister(press_load_monitors)
 
 
 def script_save(settings):
@@ -961,6 +989,14 @@ def script_save(settings):
 
     hotkey_save_array = obs.obs_hotkey_save(follow_id_tog)
     obs.obs_data_set_array(settings, FOLLOW_NAME_TOG, hotkey_save_array)
+    obs.obs_data_array_release(hotkey_save_array)
+
+    hotkey_save_array = obs.obs_hotkey_save(load_sources_hk)
+    obs.obs_data_set_array(settings, LOAD_SOURCES_NAME_HK, hotkey_save_array)
+    obs.obs_data_array_release(hotkey_save_array)
+
+    hotkey_save_array = obs.obs_hotkey_save(load_monitors_hk)
+    obs.obs_data_set_array(settings, LOAD_MONITORS_NAME_HK, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
 
 
@@ -990,4 +1026,18 @@ def toggle_follow(pressed):
             # Tick if zoomed in, to enable follow updates
             if zoom.lock:
                 zoom.tick_enable()
-        log(f"Tracking: {zoom.track}")
+        log(f"Tracking: {zoom.track}")
+
+
+def press_load_sources(pressed):
+    if pressed:
+        global props
+        source_list = obs.obs_properties_get(props, "source")
+        populate_list_property_with_source_names(source_list)
+    
+
+def press_load_monitors(pressed):
+    if pressed:
+        global props
+        monitor_list = obs.obs_properties_get(props, "monitor")
+        populate_list_property_with_monitors(monitor_list)
