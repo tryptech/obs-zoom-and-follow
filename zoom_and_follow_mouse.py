@@ -127,6 +127,7 @@ class CursorWindow:
     # Computed source location and dimensions that depend on whether override
     # settings are enabled.
     source_x = source_y = source_w = source_h = 0
+    source_load = False
     refresh_rate = 16
     source_name = source_type = ''
     zoom_w = 1280
@@ -706,54 +707,83 @@ def script_defaults(settings):
 
 
 def script_update(settings):
-    global new_source
+    if zoom.source_load:
 
-    # Update overrides before source, so the updated overrides are used
-    # in update_source_size
-    zoom.monitor_override = obs.obs_data_get_bool(settings,
-                                                  "Manual Monitor Override")
-    zoom.monitor_override_id = obs.obs_data_get_int(settings, "monitor")
-    zoom.monitor_size_override = obs.obs_data_get_bool(settings,
-                                                       "Manual Monitor Dim")
-    if zoom.monitor_size_override:
-        zoom.source_w_override = obs.obs_data_get_int(settings,
-                                                      "Monitor Width")
-        zoom.source_h_override = obs.obs_data_get_int(settings,
-                                                      "Monitor Height")
-    zoom.manual_offset = obs.obs_data_get_bool(settings, "Manual Offset")
-    if zoom.manual_offset:
-        zoom.source_x_offset = obs.obs_data_get_int(settings,
-                                                    "Manual X Offset")
-        zoom.source_y_offset = obs.obs_data_get_int(settings,
-                                                    "Manual Y Offset")
-
-    source_string = obs.obs_data_get_string(settings, "source")
-    if source_string == "":
-        zoom.source_name = zoom.source_type = ""
-        return
-
-    [source, source_type] = source_string.split("||")
-    if zoom.source_name != source:
-        zoom.source_name = source
-        zoom.source_type = source_type
-        new_source = True
-    if new_source:
-        print("Source update")
-        zoom.update_sources(True)
         sources = obs.obs_enum_sources()
         if len(sources) == 0:
-            print("No sources, likely OBS startup.")
-    else:
-        print("Non-initial update")
-        zoom.update_source_size()
-    print("Source Name: " + zoom.source_name)
+            log("No sources, likely OBS startup.")
+            return
 
-    zoom.zoom_w = obs.obs_data_get_int(settings, "Width")
-    zoom.zoom_h = obs.obs_data_get_int(settings, "Height")
-    zoom.active_border = obs.obs_data_get_double(settings, "Border")
-    zoom.max_speed = obs.obs_data_get_int(settings, "Speed")
-    zoom.smooth = obs.obs_data_get_double(settings, "Smooth")
-    zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
+        global new_source
+
+        source_string = obs.obs_data_get_string(settings, "source")
+
+        if source_string == "":
+            zoom.source_name = zoom.source_type = ""
+            return
+
+        if source_string.find('|'):
+            [source, source_type] = source_string.split("||")
+        if source and zoom.source_name != source:
+            zoom.source_name = source
+            zoom.source_type = source_type
+            new_source = True
+
+        # Update overrides before source, so the updated overrides are used
+        # in update_source_size
+        zoom.monitor_override = obs.obs_data_get_bool(settings,
+                                                      "Manual Monitor Override")
+        zoom.monitor_override_id = obs.obs_data_get_int(settings, "monitor")
+        zoom.monitor_size_override = obs.obs_data_get_bool(settings,
+                                                           "Manual Monitor Dim")
+        if zoom.monitor_size_override:
+            zoom.source_w_override = obs.obs_data_get_int(settings,
+                                                          "Monitor Width")
+            zoom.source_h_override = obs.obs_data_get_int(settings,
+                                                          "Monitor Height")
+        zoom.manual_offset = obs.obs_data_get_bool(settings, "Manual Offset")
+        if zoom.manual_offset:
+            zoom.source_x_offset = obs.obs_data_get_int(settings,
+                                                        "Manual X Offset")
+            zoom.source_y_offset = obs.obs_data_get_int(settings,
+                                                        "Manual Y Offset")
+
+
+        source_string = obs.obs_data_get_string(settings, "source")
+        if source_string == "":
+            zoom.source_name = zoom.source_type = ""
+            return
+
+        [source, source_type] = source_string.split("||")
+        if zoom.source_name != source:
+            zoom.source_name = source
+            zoom.source_type = source_type
+            new_source = True
+
+        source_string = obs.obs_data_get_string(settings, "source")
+        if source_string == "":
+            zoom.source_name = zoom.source_type = ""
+            return
+
+        [source, source_type] = source_string.split("||")
+        if zoom.source_name != source:
+            zoom.source_name = source
+            zoom.source_type = source_type
+            new_source = True
+        if new_source:
+            log("Source update")
+            zoom.update_sources(True)
+        else:
+            log("Non-initial update")
+            zoom.update_source_size()
+
+        zoom.zoom_w = obs.obs_data_get_int(settings, "Width")
+        zoom.zoom_h = obs.obs_data_get_int(settings, "Height")
+        zoom.active_border = obs.obs_data_get_double(settings, "Border")
+        zoom.max_speed = obs.obs_data_get_int(settings, "Speed")
+        zoom.smooth = obs.obs_data_get_double(settings, "Smooth")
+        zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
+
         global debug
         debug = obs.obs_data_get_bool(settings, "debug")
 
@@ -783,6 +813,7 @@ def populate_list_property_with_source_names(list_property):
                 name_val = name = obs.obs_source_get_name(source)
                 name = name + "||" + source_type
                 obs.obs_property_list_add_string(list_property, name_val, name)
+        zoom.source_load = True
     obs.source_list_release(sources)
     new_source = True
     log(f"New source: {str(new_source)}")
@@ -805,6 +836,7 @@ def populate_list_property_with_monitors(list_property):
 
 def callback(props, prop, *args):
     prop_name = obs.obs_property_name(prop)
+    
     monitor_override = obs.obs_properties_get(props, "Manual Monitor Override")
     monitor_size_override = obs.obs_properties_get(props, "Manual Monitor Dim")
     refresh_monitor = obs.obs_properties_get(props, "Refresh monitors")
@@ -814,7 +846,8 @@ def callback(props, prop, *args):
     debug = obs.obs_properties_get(props, "debug")
     
     if prop_name == "source":
-        populate_list_property_with_source_names(prop)
+        if sys != 'Darwin':
+            populate_list_property_with_source_names(prop)
         if source_type in SOURCES.monitor.all_sources():
             obs.obs_property_set_visible(monitor_override, True)
             obs.obs_property_set_visible(refresh_monitor, True)
@@ -825,6 +858,10 @@ def callback(props, prop, *args):
             obs.obs_property_set_visible(monitor_override, False)
             obs.obs_property_set_visible(refresh_monitor, False)
             obs.obs_property_set_visible(monitor_size_override, False)
+
+    if prop_name == "Refresh monitors":
+        populate_list_property_with_monitors(prop)
+
     obs.obs_property_set_visible(
         obs.obs_properties_get(props, "Monitor Width"),
         zoom.monitor_size_override)
@@ -840,10 +877,12 @@ def callback(props, prop, *args):
     monitor = obs.obs_properties_get(props, "monitor")
     obs.obs_property_set_visible(monitor, zoom.monitor_override
                                  and obs.obs_property_visible(monitor_override))
+    
     return True
 
 
 def script_properties():
+    global props
     props = obs.obs_properties_create()
 
     zs = obs.obs_properties_add_list(
@@ -853,14 +892,19 @@ def script_properties():
         obs.OBS_COMBO_TYPE_LIST,
         obs.OBS_COMBO_FORMAT_STRING,
     )
+
+    # This causes slowdown on certain systems on OBS launch, but disabling this
+    # causes OBS CPU usage to skyrocket. DO NOT REMOVE WITHOUT TESTING
     populate_list_property_with_source_names(zs)
 
-    obs.obs_properties_add_button(props, "Refresh sources",
-                                  "Refresh list of sources",
-                                  lambda props, prop: True if callback(props, zs) else True)
+    ls = obs.obs_properties_add_button(props,
+                                       "Reload sources",
+                                       "Reload list of sources",
+                                       lambda props, prop: True if callback(props, zs) else True)
 
     monitor_override = obs.obs_properties_add_bool(props,
-                                                   "Manual Monitor Override", "Enable Monitor Override")
+                                                   "Manual Monitor Override",
+                                                   "Enable Monitor Override")
 
     m = obs.obs_properties_add_list(
         props,
@@ -869,11 +913,13 @@ def script_properties():
         obs.OBS_COMBO_TYPE_LIST,
         obs.OBS_COMBO_FORMAT_INT,
     )
+
     populate_list_property_with_monitors(m)
 
     rm = obs.obs_properties_add_button(props,
-                                       "Refresh monitors", "Refresh list of monitors", lambda props,
-                                       prop: True if callback(props, zs) else True)
+                                       "Refresh monitors",
+                                       "Refresh list of monitors",
+                                       lambda props, prop: True if callback(props, m) else True)
 
     mon_size = obs.obs_properties_add_bool(props,
                                            "Manual Monitor Dim", "Enable Manual Monitor Dimensions")
@@ -931,11 +977,9 @@ def script_load(settings):
     global zoom_id_tog
 
     load_settings = loads(obs.obs_data_get_json(settings))
-    try:
+    if 'source' in load_settings and len(load_settings['source'].split("||")) == 2:
         [source, source_type] = load_settings['source'].split("||")
         [zoom.source_name, zoom.source_type] = [source, source_type]
-    except:
-        print(f"Key 'source' does not exist | {load_settings}")
 
     zoom_id_tog = obs.obs_hotkey_register_frontend(
         ZOOM_NAME_TOG, ZOOM_DESC_TOG, toggle_zoom
@@ -1040,4 +1084,4 @@ def press_load_monitors(pressed):
     if pressed:
         global props
         monitor_list = obs.obs_properties_get(props, "monitor")
-        populate_list_property_with_monitors(monitor_list)
+        populate_list_property_with_monitors(monitor_list)
