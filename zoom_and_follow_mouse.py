@@ -46,7 +46,7 @@ zoom_id_tog = None
 follow_id_tog = None
 load_sources_hk = None
 load_monitors_hk = None
-new_source = False
+new_source = True
 props = None
 ZOOM_NAME_TOG = "zoom.toggle"
 FOLLOW_NAME_TOG = "follow.toggle"
@@ -785,8 +785,8 @@ def script_update(settings):
         zoom.smooth = obs.obs_data_get_double(settings, "Smooth")
         zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
 
-        global debug
-        debug = obs.obs_data_get_bool(settings, "debug")
+    global debug
+    debug = obs.obs_data_get_bool(settings, "debug")
 
 
 def populate_list_property_with_source_names(list_property):
@@ -956,7 +956,7 @@ def script_properties():
 
     mon_show = (
         True if zoom.source_type in SOURCES.monitor.all_sources() else False)
-
+    
     obs.obs_property_set_visible(monitor_override, mon_show)
     obs.obs_property_set_visible(m, zoom.monitor_override)
     obs.obs_property_set_visible(rm, zoom.monitor_override)
@@ -1050,6 +1050,15 @@ def toggle_zoom(pressed):
         if new_source:
             zoom.update_sources()
         if zoom.source_name != "" and not zoom.lock:
+            for attr in ['source_w_raw', 'source_h_raw','source_x_raw','source_y_raw']:
+                try:
+                    zoom[attr]
+                except:
+                    log("reinit source params")
+                    log(zoom.__dict__)
+                    zoom.update_source_size()
+                    log(zoom.__dict__)
+                    break
             if zoom.source_type not in SOURCES.monitor.all_sources():
                 zoom.update_source_size()
             zoom.center_on_cursor()
