@@ -1036,13 +1036,14 @@ def script_save(settings):
     obs.obs_data_set_array(settings, FOLLOW_NAME_TOG, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
 
-    hotkey_save_array = obs.obs_hotkey_save(load_sources_hk)
-    obs.obs_data_set_array(settings, LOAD_SOURCES_NAME_HK, hotkey_save_array)
-    obs.obs_data_array_release(hotkey_save_array)
-
-    hotkey_save_array = obs.obs_hotkey_save(load_monitors_hk)
-    obs.obs_data_set_array(settings, LOAD_MONITORS_NAME_HK, hotkey_save_array)
-    obs.obs_data_array_release(hotkey_save_array)
+    if sys == 'Darwin':
+        hotkey_save_array = obs.obs_hotkey_save(load_sources_hk)
+        obs.obs_data_set_array(settings, LOAD_SOURCES_NAME_HK, hotkey_save_array)
+        obs.obs_data_array_release(hotkey_save_array)
+    
+        hotkey_save_array = obs.obs_hotkey_save(load_monitors_hk)
+        obs.obs_data_set_array(settings, LOAD_MONITORS_NAME_HK, hotkey_save_array)
+        obs.obs_data_array_release(hotkey_save_array)
 
 
 def toggle_zoom(pressed):
