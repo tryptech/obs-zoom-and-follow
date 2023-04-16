@@ -217,6 +217,7 @@ class CursorWindow:
         """
 
         self.window_name = data.get('window_name')
+        # TODO: implement
 
     def monitor_capture_mac(self, data):
         """
