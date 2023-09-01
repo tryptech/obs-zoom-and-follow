@@ -1,1 +1,2 @@
-PyWinCtl>= 0.0.35
+PyWinCtl>= 0.0.50
+typing-extensions>= 4.7.1
