@@ -429,9 +429,12 @@ def script_load(settings):
     settings_import = zs.load()
 
     for setting in settings_import.keys():
+        log(setting)
         match setting:
             case "CursorWindow":
-                log("AAAAA")
+                for value in settings_import[setting]:
+                    setattr(zoom, value, settings_import[setting][value])
+                    settings_updated.append(f"zoom.{value}")
             case _:
                 if setting in setting_pairs.keys():
                     match = setting_pairs.get(setting)
