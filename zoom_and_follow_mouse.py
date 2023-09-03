@@ -7,7 +7,7 @@ import pywinctl as pwc
 import obspython as obs
 
 version = "v.2023.09.01"
-debug = True
+debug = False
 sys= system()
 cwd = os.path.dirname(os.path.realpath(__file__))
 file_name = os.path.basename(__file__).removesuffix(".py")
@@ -38,24 +38,13 @@ For more information please visit:
 https://github.com/tryptech/obs-zoom-and-follow
 """
 
-description = (
-    "Crops and resizes a source to simulate a zoomed in tracked to"
-    " the mouse.\n\n"
-    + "Set activation hotkey in Settings.\n\n"
-    + "Active Border enables lazy/smooth tracking; border size"
-    "calculated as percent of smallest dimension. "
-    + "Border of 50% keeps mouse locked in the center of the zoom"
-    " frame\n\n"
-    + "Manual Monitor Dimensions constrain the zoom to just the area in the"
-    " defined size. Useful for only zooming in a smaller area in ultrawide"
-    " monitors, for instance.\n\n"
-    + "Manual Offset will move, relative to the top left of the monitor/source,"
-    " the constrained zoom area. In the ultrawide monitor example, this can be"
-    " used to offset the constrained area to be at the right of the screen,"
-    " preventing the zoom from following the cursor to the left side.\n\n"
-    + "By tryptech (@yo_tryptech / tryptech#1112)\n\n"
-    + f"{version}"
-)
+description = (f"""Crops and resizes a source to simulate a zoomed in tracked to the mouse.=n
+Set activation hotkey in Settings.\n
+Active Border enables lazy/smooth tracking; border size calculated as percent of smallest dimension. Border of 50% keeps mouse locked in the center of the zoom frame.\n
+Manual Monitor Dimensions constrain the zoom to just the area in the defined size; useful for restricting zooming to a small area in large format monitors.\n
+Manual Offset will move, relative to the top left of the monitor/source, the constrained zoom area. In the large format monitor example, this can be used to offset the constrained area to be on the right of the screen, preventing the zoom from following the cursor to the left side.\n
+By tryptech
+{version}""")
 
 def get_cursor_position():
     return pwc.getMousePos()
@@ -88,12 +77,19 @@ class ZoomSettings:
                 os.makedirs(self.file_dir)
             log("Settings directory found")
 
-    def save(self, settings):
+    def save(self, settings, *args, **kwargs):
         try:
             log(f"Saving to {self.file_path}")
             f = open(self.file_path, "w" if os.path.exists(self.file_path) else "a")
-            f.write(str(json.dumps(
-                json.loads(obs.obs_data_get_json(settings)),
+            output = json.loads(obs.obs_data_get_json(settings))
+            for key, value in kwargs.items():
+                skipped_values = ["update_sources", "windows", "monitors"]
+                new_keys = [i for i in dir(value) if not i.startswith("_") and i not in skipped_values]
+                new_values = [getattr(value, i) for i in new_keys]
+                new_dict = dict(zip(new_keys, new_values))
+                output[key] = new_dict
+            log(output)
+            f.write(str(json.dumps(output,
                 sort_keys=True,
                 indent=4
             )))
@@ -204,14 +200,8 @@ class CursorWindow:
 
 
 # -------------------------------------------------------------------
-class Callbacks:
-    log("Create Callbacks")
-
-
-# -------------------------------------------------------------------
 zs = ZoomSettings(cwd, settings_dir, settings_file_name)
 zoom = CursorWindow()
-cb = Callbacks()
 
 
 # -------------------------------------------------------------------
@@ -226,7 +216,6 @@ def populate_list_property_with_source_names(list_property):
     log("Updating Source List")
     zoom.update_sources()
     sources = obs.obs_enum_sources()
-    log(f"System: {sys}")
     if sources is not None:
         obs.obs_property_list_clear(list_property)
         obs.obs_property_list_add_string(list_property, "", "")
@@ -245,6 +234,21 @@ def populate_list_property_with_source_names(list_property):
     log(f"New source: {str(new_source)}")
 
 
+def populate_list_property_with_monitors(list_property):
+    log("Updating Monitor List")
+    if zoom.monitors is not None:
+        obs.obs_property_list_clear(list_property)
+        obs.obs_property_list_add_int(list_property, "", -1)
+        monitor_index = 0
+        for monitor in zoom.monitors:
+            screen_size = pwc.getScreenSize(monitor)
+            obs.obs_property_list_add_int(list_property,
+                                          f"{monitor}: {screen_size.width} x {screen_size.height}",
+                                          monitor_index)
+            monitor_index += 1
+    log("Monitor override list updated")
+
+
 # -------------------------------------------------------------------
 def script_description():
     return description
@@ -253,10 +257,72 @@ def script_description():
 def script_defaults(settings):
     log("Run script_defaults")
 
+    obs.obs_data_set_default_string(settings, "source", "")
+    obs.obs_data_set_default_bool(settings,
+                                  "Manual Monitor Override", False)
+    obs.obs_data_set_default_bool(settings, "Manual Offset", False)
+    obs.obs_data_set_default_int(settings, "Width", 1280)
+    obs.obs_data_set_default_int(settings, "Height", 720)
+    obs.obs_data_set_default_double(settings, "Border", 0.15)
+    obs.obs_data_set_default_int(settings, "Speed", 160)
+    obs.obs_data_set_default_double(settings, "Smooth", 1.0)
+    obs.obs_data_set_default_int(settings, "Zoom", 300)
+    obs.obs_data_set_default_int(settings, "Manual X Offset", 0)
+    obs.obs_data_set_default_int(settings, "Manual Y Offset", 0)
+    obs.obs_data_set_default_bool(settings, "debug", False)
+
 
 def script_update(settings):
     log("Run script_update")
-    ZoomSettings.save(zs, settings)
+    ZoomSettings.save(zs, settings, CursorWindow=zoom)
+
+
+def callback(props, prop, *args):
+    log("Triggered callback")
+
+    prop_name = obs.obs_property_name(prop)
+    
+    monitor = obs.obs_properties_get(props, "monitor")
+    monitor_override = obs.obs_properties_get(props, "Manual Monitor Override")
+    monitor_size_override = obs.obs_properties_get(props, "Manual Monitor Dim")
+    refresh_monitor = obs.obs_properties_get(props, "Refresh monitors")
+    source_type = zoom.source_type
+
+    global debug
+    debug = obs.obs_properties_get(props, "debug")
+    
+    if prop_name == "source":
+        if sys != 'Darwin':
+            populate_list_property_with_source_names(prop)
+        if source_type in SOURCES.monitor.all_sources():
+            obs.obs_property_set_visible(monitor_override, True)
+            obs.obs_property_set_visible(refresh_monitor, True)
+            obs.obs_property_set_visible(monitor_size_override, True)
+            zoom.update_source_size()
+        else:
+            obs.obs_property_set_visible(monitor_override, False)
+            obs.obs_property_set_visible(refresh_monitor, False)
+            obs.obs_property_set_visible(monitor_size_override, False)
+
+    if prop_name == "Refresh monitors":
+        populate_list_property_with_monitors(prop)
+
+    obs.obs_property_set_visible(
+        obs.obs_properties_get(props, "Monitor Width"),
+        zoom.monitor_size_override)
+    obs.obs_property_set_visible(
+        obs.obs_properties_get(props, "Monitor Height"),
+        zoom.monitor_size_override)
+    obs.obs_property_set_visible(
+        obs.obs_properties_get(props, "Manual X Offset"),
+        zoom.manual_offset)
+    obs.obs_property_set_visible(
+        obs.obs_properties_get(props, "Manual Y Offset"),
+        zoom.manual_offset)
+    obs.obs_property_set_visible(monitor, zoom.monitor_override
+                                 and obs.obs_property_visible(monitor_override))
+    
+    return True
 
 
 def script_properties():
@@ -275,6 +341,79 @@ def script_properties():
 
     populate_list_property_with_source_names(sources)
 
+    ls = obs.obs_properties_add_button(props,
+                                       "Reload sources",
+                                       "Reload list of sources",
+                                       lambda props, prop: True if callback(props, sources) else True)
+
+    monitor_override = obs.obs_properties_add_bool(props,
+                                                   "Manual Monitor Override",
+                                                   "Enable Monitor Override")
+
+    m = obs.obs_properties_add_list(
+        props,
+        "monitor",
+        "Monitor Override",
+        obs.OBS_COMBO_TYPE_LIST,
+        obs.OBS_COMBO_FORMAT_INT,
+    )
+
+    populate_list_property_with_monitors(m)
+
+    rm = obs.obs_properties_add_button(props,
+                                       "Refresh monitors",
+                                       "Refresh list of monitors",
+                                       lambda props, prop: True if callback(props, m) else True)
+
+    mon_size = obs.obs_properties_add_bool(props,
+                                           "Manual Monitor Dim", "Enable Manual Monitor Dimensions")
+
+    mon_w = obs.obs_properties_add_int(props,
+                                       "Monitor Width", "Manual Monitor Width", -8000, 8000, 1)
+    mon_h = obs.obs_properties_add_int(props,
+                                       "Monitor Height", "Manual Monitor Height", -8000, 8000, 1)
+
+    offset = obs.obs_properties_add_bool(props,
+                                         "Manual Offset", "Enable Manual Offset")
+
+    mx = obs.obs_properties_add_int(props,
+                                    "Manual X Offset", "Manual X Offset", -8000, 8000, 1)
+    my = obs.obs_properties_add_int(props,
+                                    "Manual Y Offset", "Manual Y Offset", -8000, 8000, 1)
+
+    obs.obs_properties_add_int(props,
+                               "Width", "Zoom Window Width", 320, 3840, 1)
+    obs.obs_properties_add_int(props,
+                               "Height", "Zoom Window Height", 240, 3840, 1)
+    obs.obs_properties_add_float_slider(props,
+                                        "Border", "Active Border", 0, 0.5, 0.01)
+    obs.obs_properties_add_int(props,
+                               "Speed", "Max Scroll Speed", 0, 540, 10)
+    obs.obs_properties_add_float_slider(props,
+                                        "Smooth", "Smooth", 0, 10, 0.1)
+    obs.obs_properties_add_int_slider(props,
+                                      "Zoom", "Zoom Duration (ms)", 0, 1000, 1)
+
+    debug_tog = obs.obs_properties_add_bool(props,
+                                           "debug",
+                                           "Enable debug logging")
+
+    mon_show = (
+        True if zoom.source_type in SOURCES.monitor.all_sources() else False)
+    
+    obs.obs_property_set_visible(monitor_override, mon_show)
+    obs.obs_property_set_visible(m, zoom.monitor_override)
+    obs.obs_property_set_visible(rm, zoom.monitor_override)
+    obs.obs_property_set_visible(mon_h, zoom.monitor_size_override)
+    obs.obs_property_set_visible(mon_w, zoom.monitor_size_override)
+    obs.obs_property_set_visible(mx, zoom.manual_offset)
+    obs.obs_property_set_visible(my, zoom.manual_offset)
+
+    obs.obs_property_set_modified_callback(sources, callback)
+    obs.obs_property_set_modified_callback(monitor_override, callback)
+    obs.obs_property_set_modified_callback(mon_size, callback)
+    obs.obs_property_set_modified_callback(offset, callback)
+    obs.obs_property_set_modified_callback(debug_tog, callback)
     return props
 
 
@@ -285,15 +424,24 @@ def script_load(settings):
         "source": "source_name",
     }
 
+    settings_updated = []
+
     settings_import = zs.load()
 
     for setting in settings_import.keys():
-        if setting in setting_pairs.keys():
-            match = setting_pairs.get(setting)
-            if match in dir(zoom):
-                setattr(zoom, match, settings_import[setting])
+        match setting:
+            case "CursorWindow":
+                log("AAAAA")
+            case _:
+                if setting in setting_pairs.keys():
+                    match = setting_pairs.get(setting)
+                    if match in dir(zoom):
+                    
+                        setattr(zoom, match, settings_import[setting])
+                        settings_updated.append(setting)
     
-
+    log(f"Loaded settings: {settings_updated}")
+    
 
 def script_unload():
     log("Run script_unload")
@@ -301,3 +449,56 @@ def script_unload():
 
 def script_save(settings):
     log("Run script_save")
+
+
+# -------------------------------------------------------------------
+def toggle_zoom(pressed):
+    if pressed:
+        if new_source:
+            zoom.update_sources()
+        if zoom.source_name != "" and not zoom.lock:
+            for attr in ['source_w_raw', 'source_h_raw','source_x_raw','source_y_raw']:
+                try:
+                    zoom[attr]
+                except:
+                    log("reinit source params")
+                    log(zoom.__dict__)
+                    zoom.update_source_size()
+                    log(zoom.__dict__)
+                    break
+            if zoom.source_type not in SOURCES.monitor.all_sources():
+                zoom.update_source_size()
+            zoom.center_on_cursor()
+            zoom.lock = True
+            zoom.tick_enable()
+            log(f"Mouse position: {get_cursor_position()}")
+        elif zoom.lock:
+            zoom.lock = False
+            zoom.tick_enable()  # For the zoom out transition
+        log(f"Zoom: {zoom.lock}")
+
+
+def toggle_follow(pressed):
+    if pressed:
+        if zoom.track:
+            zoom.track = False
+        elif not zoom.track:
+            zoom.track = True
+            # Tick if zoomed in, to enable follow updates
+            if zoom.lock:
+                zoom.tick_enable()
+        log(f"Tracking: {zoom.track}")
+
+
+def press_load_sources(pressed):
+    if pressed:
+        global props
+        source_list = obs.obs_properties_get(props, "source")
+        populate_list_property_with_source_names(source_list)
+    
+
+def press_load_monitors(pressed):
+    if pressed:
+        global props
+        monitor_list = obs.obs_properties_get(props, "monitor")
+        populate_list_property_with_monitors(monitor_list)
