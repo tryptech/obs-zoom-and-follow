@@ -24,10 +24,10 @@ ZOOM_NAME_TOG = f"{file_name}.zoom.toggle"
 FOLLOW_NAME_TOG = f"{file_name}.follow.toggle"
 LOAD_SOURCES_NAME_HK = f"{file_name}.sources.hk"
 LOAD_MONITORS_NAME_HK = f"{file_name}.monitors.hk"
-ZOOM_DESC_TOG = "Enable/Disable Mouse Zoom"
-FOLLOW_DESC_TOG = "Enable/Disable Mouse Follow"
-LOAD_SOURCES_DESC_HK = "Load Sources"
-LOAD_MONITORS_DESC_HK = "Load Monitors"
+ZOOM_DESC_TOG = f"Enable/Disable Mouse Zoom ({file_name})"
+FOLLOW_DESC_TOG = f"Enable/Disable Mouse Follow ({file_name})"
+LOAD_SOURCES_DESC_HK = f"Load Sources ({file_name})"
+LOAD_MONITORS_DESC_HK = f"Load Monitors ({file_name})"
 USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
 CROP_FILTER_NAME = f"ZoomCrop_{file_name}"
 
@@ -443,15 +443,59 @@ def script_load(settings):
                         setattr(zoom, match, settings_import[setting])
                         settings_updated.append(setting)
     
+    
+    global zoom_id_tog
+    zoom_id_tog = obs.obs_hotkey_register_frontend(
+        ZOOM_NAME_TOG, ZOOM_DESC_TOG, toggle_zoom
+    )
+    hotkey_save_array = obs.obs_data_get_array(settings, ZOOM_NAME_TOG)
+    obs.obs_hotkey_load(zoom_id_tog, hotkey_save_array)
+    obs.obs_data_array_release(hotkey_save_array)
+
+    global follow_id_tog
+    follow_id_tog = obs.obs_hotkey_register_frontend(
+        FOLLOW_NAME_TOG, FOLLOW_DESC_TOG, toggle_follow
+    )
+    hotkey_save_array = obs.obs_data_get_array(settings, FOLLOW_NAME_TOG)
+    obs.obs_hotkey_load(follow_id_tog, hotkey_save_array)
+    obs.obs_data_array_release(hotkey_save_array)
+
+    if sys == 'Darwin':
+        global load_sources_hk
+        load_sources_hk = obs.obs_hotkey_register_frontend(
+            LOAD_SOURCES_NAME_HK, LOAD_SOURCES_DESC_HK, press_load_sources
+        )
+        hotkey_save_array = obs.obs_data_get_array(settings, LOAD_SOURCES_NAME_HK)
+        obs.obs_hotkey_load(load_sources_hk, hotkey_save_array)
+        obs.obs_data_array_release(hotkey_save_array)
+        
+        global load_monitors_hk
+        load_monitors_hk = obs.obs_hotkey_register_frontend(
+            LOAD_MONITORS_NAME_HK, LOAD_MONITORS_DESC_HK, press_load_monitors
+        )
+        hotkey_save_array = obs.obs_data_get_array(settings, LOAD_MONITORS_NAME_HK)
+        obs.obs_hotkey_load(load_monitors_hk, hotkey_save_array)
+        obs.obs_data_array_release(hotkey_save_array)
+
     log(f"Loaded settings: {settings_updated}")
     
 
 def script_unload():
     log("Run script_unload")
 
+    obs.obs_hotkey_unregister(toggle_zoom)
+    obs.obs_hotkey_unregister(toggle_follow)
+    if sys == 'Darwin':
+        obs.obs_hotkey_unregister(press_load_sources)
+        obs.obs_hotkey_unregister(press_load_monitors)
+
 
 def script_save(settings):
     log("Run script_save")
+
+    hotkey_save_array = obs.obs_hotkey_save(zoom_id_tog)
+    obs.obs_data_set_array(settings, ZOOM_NAME_TOG, hotkey_save_array)
+    obs.obs_data_array_release(hotkey_save_array)
 
 
 # -------------------------------------------------------------------
