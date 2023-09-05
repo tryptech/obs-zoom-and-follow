@@ -815,6 +815,7 @@ def populate_list_property_with_source_names(list_property):
             source_type = obs.obs_source_get_id(source)
             if source_type in SOURCES.all_sources():
                 name_val = name = obs.obs_source_get_name(source)
+                name = name + "||" + source_type
                 obs.obs_property_list_add_string(list_property, name_val, name)
         zoom.source_load = True
     obs.source_list_release(sources)
@@ -878,13 +879,6 @@ def script_update(settings):
             zoom.source_name = zoom.source_type = ""
             return
 
-        if source_string.find('|'):
-            [source, source_type] = source_string.split("||")
-        if source and zoom.source_name != source:
-            zoom.source_name = source
-            zoom.source_type = source_type
-            new_source = True
-
         # Update overrides before source, so the updated overrides are used
         # in update_source_size
         zoom.monitor_override = obs.obs_data_get_bool(settings,
@@ -904,28 +898,18 @@ def script_update(settings):
             zoom.source_y_offset = obs.obs_data_get_int(settings,
                                                         "Manual Y Offset")
 
-
         source_string = obs.obs_data_get_string(settings, "source")
         if source_string == "":
             zoom.source_name = zoom.source_type = ""
             return
 
-        [source, source_type] = source_string.split("||")
+        if source_string.index("|"):
+            [source, source_type] = source_string.split("||")
         if zoom.source_name != source:
             zoom.source_name = source
             zoom.source_type = source_type
             new_source = True
 
-        source_string = obs.obs_data_get_string(settings, "source")
-        if source_string == "":
-            zoom.source_name = zoom.source_type = ""
-            return
-
-        [source, source_type] = source_string.split("||")
-        if zoom.source_name != source:
-            zoom.source_name = source
-            zoom.source_type = source_type
-            new_source = True
         if new_source:
             log("Source update")
             zoom.update_sources(True)
@@ -1150,6 +1134,12 @@ def script_load(settings):
 
 def script_unload():
     log("Run script_unload")
+
+    source = obs.obs_get_source_by_name(zoom.source_name)
+    crop = obs.obs_source_get_filter_by_name(source, CROP_FILTER_NAME)
+
+    if crop is not None:
+        obs.obs_source_filter_remove(source, crop)
 
     obs.obs_hotkey_unregister(toggle_zoom)
     obs.obs_hotkey_unregister(toggle_follow)
