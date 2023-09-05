@@ -293,16 +293,16 @@ class CursorWindow:
             f"Updating stored dimensions to match monitor's dimensions | {monitor}")
         if (self.source_w_raw != monitor['size'].width
             or self.source_h_raw != monitor['size'].height
-            or self.source_x_raw != monitor['pos'].x
-                or self.source_y_raw != monitor['pos'].y):
+            or self.source_x_raw != monitor['position'].x
+                or self.source_y_raw != monitor['position'].y):
             log("OLD")
             log("Width, Height, X, Y")
             log(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw}, \
                 {self.source_y_raw}")
             self.source_w_raw = monitor['size'].width
             self.source_h_raw = monitor['size'].height
-            self.source_x_raw = monitor['pos'].x
-            self.source_y_raw = monitor['pos'].y
+            self.source_x_raw = monitor['position'].x
+            self.source_y_raw = monitor['position'].y
             log("NEW")
             log("Width, Height, X, Y")
             log(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw}, \
