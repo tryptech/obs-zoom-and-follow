@@ -862,6 +862,87 @@ def script_defaults(settings):
 
 def script_update(settings):
     log("Run script_update")
+
+    if zoom.source_load:
+
+        sources = obs.obs_enum_sources()
+        if len(sources) == 0:
+            log("No sources, likely OBS startup.")
+            return
+
+        global new_source
+
+        source_string = obs.obs_data_get_string(settings, "source")
+
+        if source_string == "":
+            zoom.source_name = zoom.source_type = ""
+            return
+
+        if source_string.find('|'):
+            [source, source_type] = source_string.split("||")
+        if source and zoom.source_name != source:
+            zoom.source_name = source
+            zoom.source_type = source_type
+            new_source = True
+
+        # Update overrides before source, so the updated overrides are used
+        # in update_source_size
+        zoom.monitor_override = obs.obs_data_get_bool(settings,
+                                                      "Manual Monitor Override")
+        zoom.monitor_override_id = obs.obs_data_get_int(settings, "monitor")
+        zoom.monitor_size_override = obs.obs_data_get_bool(settings,
+                                                           "Manual Monitor Dim")
+        if zoom.monitor_size_override:
+            zoom.source_w_override = obs.obs_data_get_int(settings,
+                                                          "Monitor Width")
+            zoom.source_h_override = obs.obs_data_get_int(settings,
+                                                          "Monitor Height")
+        zoom.manual_offset = obs.obs_data_get_bool(settings, "Manual Offset")
+        if zoom.manual_offset:
+            zoom.source_x_offset = obs.obs_data_get_int(settings,
+                                                        "Manual X Offset")
+            zoom.source_y_offset = obs.obs_data_get_int(settings,
+                                                        "Manual Y Offset")
+
+
+        source_string = obs.obs_data_get_string(settings, "source")
+        if source_string == "":
+            zoom.source_name = zoom.source_type = ""
+            return
+
+        [source, source_type] = source_string.split("||")
+        if zoom.source_name != source:
+            zoom.source_name = source
+            zoom.source_type = source_type
+            new_source = True
+
+        source_string = obs.obs_data_get_string(settings, "source")
+        if source_string == "":
+            zoom.source_name = zoom.source_type = ""
+            return
+
+        [source, source_type] = source_string.split("||")
+        if zoom.source_name != source:
+            zoom.source_name = source
+            zoom.source_type = source_type
+            new_source = True
+        if new_source:
+            log("Source update")
+            zoom.update_sources(True)
+        else:
+            log("Non-initial update")
+            zoom.update_source_size()
+
+        zoom.zoom_w = obs.obs_data_get_int(settings, "Width")
+        zoom.zoom_h = obs.obs_data_get_int(settings, "Height")
+        zoom.active_border = obs.obs_data_get_double(settings, "Border")
+        zoom.max_speed = obs.obs_data_get_int(settings, "Speed")
+        zoom.smooth = obs.obs_data_get_double(settings, "Smooth")
+        zoom.zoom_time = obs.obs_data_get_double(settings, "Zoom")
+
+    global debug
+    debug = obs.obs_data_get_bool(settings, "debug")
+
     ZoomSettings.save(zs, settings, CursorWindow=zoom)
 
 
