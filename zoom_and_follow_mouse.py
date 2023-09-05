@@ -1073,10 +1073,6 @@ def script_properties():
 def script_load(settings):
     log("Run script_load")
 
-    setting_pairs = {
-        "source": "source_name",
-    }
-
     settings_updated = []
 
     settings_import = zs.load()
@@ -1089,11 +1085,15 @@ def script_load(settings):
                         setattr(zoom, value, settings_import[setting][value])
                         settings_updated.append(f"zoom.{value}")
                 case _:
-                    if setting in setting_pairs.keys():
-                        match = setting_pairs.get(setting)
-                        if match in dir(zoom):
-                            setattr(zoom, match, settings_import[setting])
-                            settings_updated.append(setting)
+                    if setting not in dir(zoom):
+                        break
+                    elif setting == "source":
+                        if settings_import[setting].index("||"):
+                            value = settings_import[setting].split("||")[0]
+                    else: 
+                        value = settings_import[setting]
+                    setattr(zoom, setting, value)
+                    settings_updated.append(setting)
     
     
     global zoom_id_tog
