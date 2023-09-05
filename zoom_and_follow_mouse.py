@@ -102,7 +102,7 @@ class ZoomSettings:
             )))
             f.close()
         except Exception as e:
-            print(e, "Cannot write settings to file")
+            log(f"{e}: Cannot write settings to file")
 
     def load(self):
         log("Loading settings")
@@ -114,7 +114,7 @@ class ZoomSettings:
             f.close()
             return d
         except Exception as e:
-            print(e, "Cannot load settings from file")
+            log(f"{e}: Cannot load settings from file")
             return None
 
 
