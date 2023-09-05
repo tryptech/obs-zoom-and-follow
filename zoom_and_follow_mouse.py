@@ -7,7 +7,7 @@ import pywinctl as pwc
 import obspython as obs
 
 version = "v.2023.09.01"
-debug = True
+debug = False
 sys= system()
 cwd = os.path.dirname(os.path.realpath(__file__))
 file_name = os.path.basename(__file__).removesuffix(".py")
