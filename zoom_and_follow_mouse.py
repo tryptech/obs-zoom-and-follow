@@ -1,4 +1,4 @@
-
+from inspect import ismethod, isfunction
 from math import sqrt
 from platform import system
 import os
@@ -84,16 +84,17 @@ class ZoomSettings:
                      "w" if os.path.exists(self.file_path)
                      else "a")
             output = json.loads(obs.obs_data_get_json(settings))
-            for key, value in kwargs.items():
-
-                skipped_values = ["windows", "monitors", "screens"]
-                new_keys = [i for i in dir(value)
-                            if not i.startswith("_")
-                            and i not in skipped_values
-                            and callable(i)]
-                new_values = [getattr(value, i) for i in new_keys]
-                new_dict = dict(zip(new_keys, new_values))
-                output[key] = new_dict
+            if kwargs:
+                for key, value in kwargs.items():              
+                    skipped_values = ["windows", "monitors"]
+                    new_keys = [i for i in dir(value)
+                                if not i.startswith("_")
+                                and i not in skipped_values
+                                and not ismethod(getattr(value, i))
+                                and not isfunction(getattr(value, i))]
+                    new_values = [getattr(value, i) for i in new_keys]
+                    new_dict = dict(zip(new_keys, new_values))
+                    output[key] = new_dict
             log(output)
             f.write(str(json.dumps(output,
                 sort_keys=True,
@@ -163,28 +164,71 @@ SOURCES = CaptureSources(
 
 
 class CursorWindow:
+    """
+    Attributes
+
+    lock                    |   Toggles zoom
+    track                   |   Toggles follow
+    update                  |   Animation status
+    ticking                 |   Timer subscribe lock
+    active_border           |   Ratio of smallest CaptureWindow dimension to track
+    manual_offset           |   
+    max_speed               |   Maximum CaptureWindow movement per frame (px)
+    monitor                 |   
+    monitor_override        |   
+    monitor_override_id     |   
+    monitor_size_override   |   
+    monitors                |   Cached list of monitor objects as reported by PyWinCtl
+    monitors_key            |   Cached list of monitors as reported by PyWinCtl
+    refresh_rate            |   OBS frame rate
+    smooth                  |   Smoothing factor for CaptureWindow movement (0.0 - 1.0)
+    source_load             |   
+    source_name             |   Name of source to be modified
+    source_type             |   Type of source to be modified
+    source_w_raw            |   Source width as reported by PyWinCtl
+    source_h_raw            |   Source height as reported by PyWinCtl
+    source_x_raw            |   Source x position as reported by PyWinCtl
+    source_y_raw            |   Source y position as reported by PyWinCtl 
+    source_w_override       |   Custom source width
+    source_h_override       |   Custom source height
+    source_x_offset         |   Custom source x offset relative to source_x_raw
+    source_y_offset         |   Custom source y offset relative to source_y_raw
+    source_w                |   Final computed source width
+    source_h                |   Final computed source height
+    source_x                |   Final computed source x position
+    source_y                |   Final computed source y position
+    window                  |   
+    window_handle           |   
+    window_name             |   
+    windows                 |   
+    zi_timer                |   Zoom in animation frame timer
+    zo_timer                |   Zoom out animation frame timer
+    zoom_time               |   Zoom animation length (ms)
+    zoom_h                  |   CaptureWindow Height
+    zoom_w                  |   CaptureWindow Width
+    zoom_x                  |   CaptureWindow x position (relative to source)
+    zoom_y                  |   CaptureWindow y position (relative to source)
+    zoom_x_target           |   CaptureWindow x interpolation target
+    zoom_y_target           |   CaptureWindow y interpolation target
+
+    """
     log("Create CursorWindow")
 
-    lock = False  # Activate zoom mode?
-    track = True  # Follow mouse cursor while in zoom mode?
-    update = True  # Animating between zoom in and out?
-    ticking = False  # To prevent subscribing to timer multiple times
-    zi_timer = zo_timer = 0  # Frames spent on zoom in/out animations
-    windows = window_titles = monitor = window = window_handle \
-        = window_name = ''
+    lock = False
+    track = True
+    update = True
+    ticking = False
+    zi_timer = zo_timer = 0
+    windows = monitor = window = window_handle = window_name = ''
     monitors = pwc.getAllScreens()
     monitors_key = list(dict.keys(monitors))
     monitor_override = manual_offset = monitor_size_override = False
     monitor_override_id = ''
-    zoom_x = zoom_y = 0  # Zoomed-in window top left location
-    zoom_x_target = zoom_y_target = 0  # Interpolate the above towards these
-    # Actual source (window or monitor) location and dimensions from the system
+    zoom_x = zoom_y = 0
+    zoom_x_target = zoom_y_target = 0
     source_w_raw = source_h_raw = source_x_raw = source_y_raw = 0
-    # Overriden source location and dimensions from settings
     source_x_offset = source_y_offset \
         = source_w_override = source_h_override = 0
-    # Computed source location and dimensions that depend on whether override
-    # settings are enabled.
     source_x = source_y = source_w = source_h = 0
     source_load = False
     refresh_rate = 16
@@ -468,6 +512,279 @@ class CursorWindow:
                 self.monitor_capture_mac(data)
 
             self.update_computed_source_values()
+
+    @staticmethod
+    def cubic_in_out(p):
+        """
+        Cubic in/out easing function. Accelerates until halfway, then
+        decelerates.
+
+        :param p: Linear temporal percent progress through easing from
+            0 to 1
+        :return: Adjusted percent progress
+        """
+        if p < 0.5:
+            return 4 * p * p * p
+        else:
+            f = (2 * p) - 2
+            return 0.5 * f * f * f + 1
+
+    @staticmethod
+    def check_offset(arg1, arg2, smooth):
+        """
+        Checks if a given value is offset from pivot value and provides
+        an adjustment towards the pivot based on a smoothing factor
+
+        :param arg1: Pivot value
+        :param arg2: Checked value
+        :param smooth: Smoothing factor; larger values adjusts more smoothly
+        :return: Adjustment value
+        """
+        return round((arg1 - arg2) / smooth)
+
+    def follow(self, mousePos):
+        """
+        Updates the position of the zoom window.
+
+        :param mousePos: [x,y] position of the mouse on the canvas of
+            all connected displays
+        :return: If the zoom window was moved
+        """
+        track = False
+
+        # Don't follow cursor when it is outside the source in both dimensions
+        if (mousePos.x > (self.source_x + self.source_w)
+            or mousePos.x < self.source_x) \
+                and (mousePos.y > (self.source_y + self.source_h)
+                     or mousePos.y < self.source_y):
+            return False
+
+        # When the mouse goes to the left edge or top edge of a Mac display, the cursor is set to 0,0
+        # This attempts to ignore the mouse coordinates are set to that value on Mac only.
+        if sys == 'Darwin' and (mousePos[0] == 0 or mousePos[1] == 0):
+            return False
+
+        # Get active zone edges relative to the source
+        use_lazy_tracking = self.active_border < 0.5
+        if use_lazy_tracking:
+            # Find border size in pixels from shortest dimension (usually height)
+            border_size = int(min(self.zoom_w, self.zoom_h) * self.active_border)
+            zoom_edge_left = self.zoom_x_target + border_size
+            zoom_edge_right = self.zoom_x_target + self.zoom_w - border_size
+            zoom_edge_top = self.zoom_y_target + border_size
+            zoom_edge_bottom = self.zoom_y_target + self.zoom_h - border_size
+        else:
+            # Active zone edges are at the center of the zoom window to keep
+            # the cursor there at all times
+            zoom_edge_left = zoom_edge_right = \
+                self.zoom_x_target + int(self.zoom_w * 0.5)
+            zoom_edge_top = zoom_edge_bottom = \
+                self.zoom_y_target + int(self.zoom_h * 0.5)
+
+        # Cursor relative to the source, because the crop values are relative
+        source_mouse_x = mousePos.x - self.source_x_raw
+        source_mouse_y = mousePos.y - self.source_y_raw
+
+        if source_mouse_x < zoom_edge_left:
+            self.zoom_x_target += source_mouse_x - zoom_edge_left
+        elif source_mouse_x > zoom_edge_right:
+            self.zoom_x_target += source_mouse_x - zoom_edge_right
+
+        if source_mouse_y < zoom_edge_top:
+            self.zoom_y_target += source_mouse_y - zoom_edge_top
+        elif source_mouse_y > zoom_edge_bottom:
+            self.zoom_y_target += source_mouse_y - zoom_edge_bottom
+
+        # Only constrain zoom window to source when not centering mouse cursor
+        if use_lazy_tracking:
+            self.check_pos()
+
+        # Set smoothing values
+        smoothFactor = 1.0 if self.update else \
+            max(1.0, self.smooth * 40 / self.refresh_rate)
+
+        # Set x and y zoom offset
+        offset_x = (self.zoom_x_target - self.zoom_x) / smoothFactor
+        offset_y = (self.zoom_y_target - self.zoom_y) / smoothFactor
+
+        # Max speed clamp. Don't clamp if animating zoom in/out or
+        # if keeping cursor in center of zoom window
+        if (not self.update) or use_lazy_tracking:
+            speed_squared = (offset_x * offset_x) + (offset_y * offset_y)
+            if speed_squared > (self.max_speed * self.max_speed):
+                # Only spend CPU on sqrt if we really need it
+                speed_factor = self.max_speed / sqrt(speed_squared)
+                offset_x *= speed_factor
+                offset_y *= speed_factor
+
+        # Interpolate the values we apply to the crop filter
+        self.zoom_x += offset_x
+        self.zoom_y += offset_y
+
+        return offset_x != 0 or offset_y != 0
+
+    def check_pos(self):
+        """
+        Checks if zoom window exceeds window dimensions and clamps it if true
+        """
+        x_min = self.source_x
+        x_max = self.source_w + self.source_x - self.zoom_w
+        y_min = self.source_y
+        y_max = self.source_h + self.source_y - self.zoom_h
+
+        if self.zoom_x_target < x_min:
+            self.zoom_x_target = x_min
+        elif self.zoom_x_target > x_max:
+            self.zoom_x_target = x_max
+        if self.zoom_y_target < y_min:
+            self.zoom_y_target = y_min
+        elif self.zoom_y_target > y_max:
+            self.zoom_y_target = y_max
+
+    def center_on_cursor(self):
+        """
+        Instantly sets the zoom window target location to have the cursor at its
+        center. If completely zoomed out (not interpolating) also sets the
+        current location, so there's no visible travel from where the previous
+        known location was when zooming in again.
+        """
+        mousePos = get_cursor_position()
+        self.zoom_x_target = mousePos.x - self.zoom_w * 0.5
+        self.zoom_y_target = mousePos.y - self.zoom_h * 0.5
+        # Clamp to a valid location inside the source limits
+        self.check_pos()
+
+        # Are we fully zoomed out?
+        if self.zi_timer == 0:
+            # Synchronize the current crop zoom location
+            self.zoom_x = self.zoom_x_target
+            self.zoom_y = self.zoom_y_target
+            log("Skip to cursor location")
+
+    def obs_set_crop_settings(self, left, top, width, height):
+        """
+        Interfaces with OBS to set dimensions of the crop filter used for
+        zooming, creating the filter if necessary.
+
+        :param left: crop filter new left edge location in pixels
+        :param top: crop filter new top edge location in pixels
+        :param width: crop filter new width in pixels
+        :param height: crop filter new height in pixels
+        """
+        source = obs.obs_get_source_by_name(self.source_name)
+        crop = obs.obs_source_get_filter_by_name(source, CROP_FILTER_NAME)
+
+        if crop is None:  # create filter
+            obs_data = obs.obs_data_create()
+            obs.obs_data_set_bool(obs_data, "relative", False)
+            obs_crop_filter = obs.obs_source_create_private(
+                "crop_filter",
+                CROP_FILTER_NAME,
+                obs_data)
+            obs.obs_source_filter_add(source, obs_crop_filter)
+            obs.obs_source_release(obs_crop_filter)
+            obs.obs_data_release(obs_data)
+
+        crop_settings = obs.obs_source_get_settings(crop)
+
+        def set_crop_setting(name, value):
+            obs.obs_data_set_int(crop_settings, name, value)
+
+        set_crop_setting("left", left)
+        set_crop_setting("top", top)
+        set_crop_setting("cx", width)
+        set_crop_setting("cy", height)
+
+        obs.obs_source_update(crop, crop_settings)
+
+        obs.obs_data_release(crop_settings)
+        obs.obs_source_release(source)
+        obs.obs_source_release(crop)
+
+    def set_crop(self):
+        """
+        Compute rectangle of the zoom window, interpolating for zoom in and out
+        transitions and update the crop filter used for zooming in the source.
+        """
+        totalFrames = int(self.zoom_time / self.refresh_rate)
+        crop_left = crop_top = crop_width = crop_height = 0
+
+        if not self.lock:
+            # Zooming out
+            if self.zo_timer < totalFrames:
+                self.zo_timer += 1
+                # Zoom in will start from same animation position
+                self.zi_timer = totalFrames - self.zo_timer
+                time = self.cubic_in_out(self.zo_timer / totalFrames)
+                crop_left = int(((1 - time) * self.zoom_x))
+                crop_top = int(((1 - time) * self.zoom_y))
+                crop_width = self.zoom_w + int(time * (self.source_w_raw - self.zoom_w))
+                crop_height = self.zoom_h + int(time * (self.source_h_raw - self.zoom_h))
+                self.update = True
+            else:
+                # Leave crop left and top as 0
+                crop_width = self.source_w_raw
+                crop_height = self.source_h_raw
+                self.update = False
+        else:
+            # Zooming in
+            if self.zi_timer < totalFrames:
+                self.zi_timer += 1
+                # Zoom out will start from same animation position
+                self.zo_timer = totalFrames - self.zi_timer
+                time = self.cubic_in_out(self.zi_timer / totalFrames)
+                crop_left = int(time * self.zoom_x)
+                crop_top = int(time * self.zoom_y)
+                crop_width = self.source_w_raw - int(time * (self.source_w_raw - self.zoom_w))
+                crop_height = self.source_h_raw - int(time * (self.source_h_raw - self.zoom_h))
+                self.update = True if time < 0.8 else False
+            else:
+                crop_left = int(self.zoom_x)
+                crop_top = int(self.zoom_y)
+                crop_width = int(self.zoom_w)
+                crop_height = int(self.zoom_h)
+                self.update = False
+
+        self.obs_set_crop_settings(crop_left, crop_top, crop_width, crop_height)
+
+        # Stop ticking when zoom out is complete or
+        # when zoomed in and not following the cursor
+        if ((not self.lock) and (self.zo_timer >= totalFrames)) \
+                or (self.lock and (not self.track) and (self.zi_timer >= totalFrames)):
+            self.tick_disable()
+
+    def tick_enable(self):
+        if self.ticking:
+            return
+
+        # Update refresh rate in case user has changed settings. Otherwise
+        # animations will feel slower/faster
+        self.refresh_rate = int(obs.obs_get_frame_interval_ns() / 1000000)
+
+        obs.timer_add(self.tick, self.refresh_rate)
+        self.ticking = True
+        log(f"Ticking: {self.ticking}")
+
+    def tick_disable(self):
+        obs.remove_current_callback()
+        self.ticking = False
+        log(f"Ticking: {self.ticking}")
+
+    def tracking(self):
+        """
+        Tracking state function
+        """
+        if self.lock:
+            if self.track or self.update:
+                self.follow(get_cursor_position())
+        self.set_crop()
+
+    def tick(self):
+        """
+        Containing function that is run every frame
+        """
+        self.tracking()
+
 
 
 # -------------------------------------------------------------------
