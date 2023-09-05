@@ -7,7 +7,7 @@ import pywinctl as pwc
 import obspython as obs
 
 version = "v.2023.09.01"
-debug = False
+debug = True
 sys= system()
 cwd = os.path.dirname(os.path.realpath(__file__))
 file_name = os.path.basename(__file__).removesuffix(".py")
@@ -78,13 +78,19 @@ class ZoomSettings:
             log("Settings directory found")
 
     def save(self, settings, *args, **kwargs):
+        log(f"Saving to {self.file_path}")
         try:
-            log(f"Saving to {self.file_path}")
-            f = open(self.file_path, "w" if os.path.exists(self.file_path) else "a")
+            f = open(self.file_path,
+                     "w" if os.path.exists(self.file_path)
+                     else "a")
             output = json.loads(obs.obs_data_get_json(settings))
             for key, value in kwargs.items():
-                skipped_values = ["update_sources", "windows", "monitors"]
-                new_keys = [i for i in dir(value) if not i.startswith("_") and i not in skipped_values]
+
+                skipped_values = ["windows", "monitors", "screens"]
+                new_keys = [i for i in dir(value)
+                            if not i.startswith("_")
+                            and i not in skipped_values
+                            and callable(i)]
                 new_values = [getattr(value, i) for i in new_keys]
                 new_dict = dict(zip(new_keys, new_values))
                 output[key] = new_dict
@@ -98,8 +104,8 @@ class ZoomSettings:
             print(e, "Cannot write settings to file")
 
     def load(self):
+        log("Loading settings")
         try:
-            log("Loading settings")
             if not os.path.exists(self.file_path):
                 self.create()
             f = open(self.file_path)
@@ -108,6 +114,7 @@ class ZoomSettings:
             return d
         except Exception as e:
             print(e, "Cannot load settings from file")
+            return None
 
 
 # -------------------------------------------------------------------
@@ -197,6 +204,270 @@ class CursorWindow:
             self.windows = pwc.getAllWindows()
             self.monitors = pwc.getAllScreens()
             self.monitors_key = list(dict.keys(self.monitors))
+
+    def update_window_dim(self, window):
+        """
+        Update the stored window dimensions to those of the selected
+        window
+
+        :param window: Window with new dimensions
+        """
+        log("Updating stored dimensions to match current dimensions")
+        if window != None:
+            # FIXME: on macos get window bounds results in an error and
+            # does not work
+            # NSInternalInconsistencyException - NSWindow drag regions
+            # should only be invalidated on the Main Thread!
+            window_dim = window.getClientFrame()
+            if (self.source_w_raw != window_dim.right - window_dim.left
+                or self.source_h_raw != window_dim.bottom - window_dim.top
+                or self.source_x_raw != window_dim.left
+                    or self.source_y_raw != window_dim.top):
+                log("OLD")
+                log("Width, Height, X, Y")
+                log(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw},"
+                      f" {self.source_y_raw}")
+                self.source_w_raw = window_dim.right - window_dim.left
+                self.source_h_raw = window_dim.bottom - window_dim.top
+                self.source_x_raw = window_dim.left
+                self.source_y_raw = window_dim.top
+                log("NEW")
+                log("Width, Height, X, Y")
+                log(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw},"
+                      f" {self.source_y_raw}")
+            else:
+                log("Dimensions did not change")
+
+    def update_monitor_dim(self, monitor):
+        """
+        Update the stored dimensions based on the selected monitor
+
+        :param monitor: Single monitor as returned from the PyWinCtl
+            Monitor function getAllScreens()
+        """
+        log(
+            f"Updating stored dimensions to match monitor's dimensions | {monitor}")
+        if (self.source_w_raw != monitor['size'].width
+            or self.source_h_raw != monitor['size'].height
+            or self.source_x_raw != monitor['pos'].x
+                or self.source_y_raw != monitor['pos'].y):
+            log("OLD")
+            log("Width, Height, X, Y")
+            log(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw}, \
+                {self.source_y_raw}")
+            self.source_w_raw = monitor['size'].width
+            self.source_h_raw = monitor['size'].height
+            self.source_x_raw = monitor['pos'].x
+            self.source_y_raw = monitor['pos'].y
+            log("NEW")
+            log("Width, Height, X, Y")
+            log(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw}, \
+                {self.source_y_raw}")
+        else:
+            log("Dimensions did not change")
+
+    def window_capture_gen(self, data):
+        """
+        TODO: More Linux testing, specifically with handles Windows
+        capture for Windows and Linux. In Windows, application data is
+        stored as "Title:WindowClass:Executable"
+        """
+        global new_source
+
+        try:
+            # Assuming the OBS data is formatted correctly, we should
+            # be able to identify the window
+            # If New Source/Init
+            # If Handle Exists
+            # Else
+            if new_source:
+                # If new source selected / OBS initialize
+                # Build window, window_handle, and
+                # window_name
+                log("New Source")
+                log("Retrieving target window info from OBS")
+                self.window_name = data['window'].split(":")[0]
+                log(f"Searching for: {self.window_name}")
+                for w in self.windows:
+                    if w.title == self.window_name:
+                        window_match = w
+                        self.window_handle = w.getHandle()
+                new_source = False
+                log(f"Window Match: {window_match.title}")
+                log("Window Match Handle:"
+                      f" {str(self.window_handle)}")
+            if self.window_handle != '':
+                # If window handle is already stored
+                # Get window based on handle
+                # Check if name needs changing
+                log(f"Handle exists: {str(self.window_handle)}")
+                handle_match = False
+                for w in self.windows:
+                    if w.getHandle() == self.window_handle:
+                        handle_match = True
+                        log(
+                            f"Found Handle: {str(w.getHandle())} | {self.window}")
+                        window_match = w
+                        if window_match.title != self.window:
+                            log("Changing target title")
+                            log(f"Old Title: {self.window_name}")
+                            self.window_name = w.title
+                            log(f"New Title: {self.window_name}")
+                if handle_match == False:
+                    # TODO: If the handle no longer exists,
+                    # eg. Window or App closed
+                    raise
+            else:
+                log("I don't know how it gets here.")
+                window_match = None
+                # TODO:
+        except:
+            log(f"Source {self.source_name} has changed."
+                  " Select new source window")
+            window_match = None
+        return window_match
+
+    def monitor_capture_gen(self, data):
+        """
+        If monitor override, update with monitor override
+        Else if no monitor ID, monitor does not exist
+        Else search for the monitor and update
+        """
+        monitor_id = data.get('monitor', None)
+        if len(self.monitors.items()) == 1:
+            log("Only one monitor detected. Forcing override.")
+            for monitor in self.monitors.items():
+                self.update_monitor_dim(monitor[1])
+        elif self.monitor_override is True:
+            log(f"Monitor Override: {self.monitor_override}")
+            for monitor in self.monitors.items():
+                if monitor[0] == self.monitors_key[
+                        self.monitor_override_id]:
+                    self.update_monitor_dim(monitor[1])
+        elif monitor_id == None:
+            log(f"Key 'monitor' does not exist in {data}")
+        else:
+            log(f"Searching for monitor {monitor_id}")
+            for monitor in self.monitors.items():
+                if (monitor[1]['id'] == monitor_id):
+                    log(f"Found monitor {monitor[1]['id']} | {monitor}")
+                    self.update_monitor_dim(monitor[1])
+
+    def window_capture_mac(self, data):
+        """
+        Window capture for macOS
+        macos uses an exclusive property 'window_name' pywinctl does not
+        report application windows correctly for macos yet, so we must
+        capture based on the actual window name and not based on the
+        application like we do for windows.
+        """
+
+        self.window_name = data.get('window_name')
+        # TODO: implement
+
+    def screen_capture_mac(self, data):
+        """
+        From macOS 12.5+, OBS reports all window and display captures
+        as the same type.
+
+        data.type is in {0, 1, 2} where:
+            DISPLAY = 0
+            WINDOW = 1
+            APPLICATION = 2
+        
+        Use is expected to be for DISPLAY or WINDOW
+        """
+        log("Apple Silicon")
+        screen_capture_type = data.get('type')
+        if (screen_capture_type == 0):
+            monitor_id = data.get('display')
+            for monitor in self.monitors.items():
+                if (monitor[1]['id'] == monitor_id):
+                    log(f"Found monitor {monitor[1]['id']} | {monitor[0]}")
+                    self.update_monitor_dim(monitor[1])
+
+    def monitor_capture_mac(self, data):
+        """
+        The 'display' property is an index value and not the true
+        monitor id. It is only returned when there is more than one
+        monitor on your system. We will assume that the order of the
+        monitors returned from pywinctl are in the same order that OBS
+        is assigning the display index value.
+        """
+        monitor_index = data.get('display', 0)
+        log(f"Retrieving monitor {monitor_index}")
+        for monitor in self.monitors.items():
+            if (monitor['id'] == monitor_index):
+                log(f"Found monitor {monitor['id']} | {monitor}")
+                self.update_monitor_dim(monitor)
+
+    def update_computed_source_values(self):
+        """
+        Compute source location and size with optional overrides applied
+        """
+        if self.manual_offset:
+            self.source_x = self.source_x_raw + self.source_x_offset
+            self.source_y = self.source_y_raw + self.source_y_offset
+        else:
+            self.source_x = self.source_x_raw
+            self.source_y = self.source_y_raw
+
+        if self.monitor_size_override:
+            self.source_w = self.source_w_override
+            self.source_h = self.source_h_override
+        else:
+            self.source_w = self.source_w_raw
+            self.source_h = self.source_h_raw
+
+    def update_source_size(self):
+        """
+        Adjusts the source size variables based on the source given
+        """
+        global new_source
+
+        try:
+            # Try to pull the data for the source object
+            # OBS stores the monitor index/window target in the
+            # window/game/display sources settings
+            # Info is stored in a JSON format
+            source = obs.obs_get_source_by_name(self.source_name)
+            source_settings = obs.obs_source_get_settings(source)
+            data = json.loads(obs.obs_data_get_json(source_settings))
+        except:
+            # If it cannot be pulled, it is likely one of the following:
+            #   The source no longer exists
+            #   The source's name has changed
+            #   OBS does not have the sources loaded yet when launching
+            #       the script on start
+
+            log("Source '" + self.source_name + "' not found.")
+            log(obs.obs_get_source_by_name(self.source_name))
+        else:
+            # If the source data is pulled, it exists. Therefore other
+            # information must also exists. Source Type is pulled to
+            # determine if the source is a display, game, or window
+
+            log(f"Source loaded successfully: {self.source_type}")
+            self.source_type = obs.obs_source_get_id(source)
+            log(f"Source Type: {self.source_type}")
+            if (self.source_type in SOURCES.window.sources):
+                window_match = ''
+                if 'window_name' in data:
+                    self.window_capture_mac(data)
+                elif 'window' in data:
+                    window_match = self.window_capture_gen(data)
+                if window_match is not None:
+                    log("Proceeding to resize")
+                    self.window = pwc.getWindowsWithTitle(self.window_name)[0]
+                    self.update_window_dim(self.window)
+            elif (self.source_type in SOURCES.monitor.windows | SOURCES.monitor.linux):
+                self.monitor_capture_gen(data)
+            elif (self.source_type in SOURCES.applesilicon.sources):
+                self.screen_capture_mac(data)
+            elif (self.source_type in SOURCES.monitor.macos):
+                self.monitor_capture_mac(data)
+
+            self.update_computed_source_values()
 
 
 # -------------------------------------------------------------------
@@ -428,20 +699,19 @@ def script_load(settings):
 
     settings_import = zs.load()
 
-    for setting in settings_import.keys():
-        log(setting)
-        match setting:
-            case "CursorWindow":
-                for value in settings_import[setting]:
-                    setattr(zoom, value, settings_import[setting][value])
-                    settings_updated.append(f"zoom.{value}")
-            case _:
-                if setting in setting_pairs.keys():
-                    match = setting_pairs.get(setting)
-                    if match in dir(zoom):
-                    
-                        setattr(zoom, match, settings_import[setting])
-                        settings_updated.append(setting)
+    if settings_import:
+        for setting in settings_import.keys():
+            match setting:
+                case "CursorWindow":
+                    for value in settings_import[setting]:
+                        setattr(zoom, value, settings_import[setting][value])
+                        settings_updated.append(f"zoom.{value}")
+                case _:
+                    if setting in setting_pairs.keys():
+                        match = setting_pairs.get(setting)
+                        if match in dir(zoom):
+                            setattr(zoom, match, settings_import[setting])
+                            settings_updated.append(setting)
     
     
     global zoom_id_tog
@@ -506,7 +776,7 @@ def toggle_zoom(pressed):
         if zoom.source_name != "" and not zoom.lock:
             for attr in ['source_w_raw', 'source_h_raw','source_x_raw','source_y_raw']:
                 try:
-                    zoom[attr]
+                    getattr(zoom,attr)
                 except:
                     log("reinit source params")
                     log(zoom.__dict__)
