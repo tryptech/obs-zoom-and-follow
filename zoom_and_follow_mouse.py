@@ -1,22 +1,22 @@
 from inspect import ismethod, isfunction
 from math import sqrt
 from platform import system
-import os
+from os import makedirs, path
 import json
 import pywinctl as pwc
+import pymonctl as pmc
 import obspython as obs
 
 version = "v.2023.09.01"
-debug = False
+debug = True
 sys= system()
-cwd = os.path.dirname(os.path.realpath(__file__))
-file_name = os.path.basename(__file__).removesuffix(".py")
+darwin = (sys == "Darwin")
+cwd = path.dirname(path.realpath(__file__))
+file_name = path.basename(__file__).removesuffix(".py")
 settings_dir = "settings"
 settings_file_name = f"{file_name}.json"
 zoom_id_tog = None
 follow_id_tog = None
-load_sources_hk = None
-load_monitors_hk = None
 new_source = True
 props = None
 
@@ -26,8 +26,6 @@ LOAD_SOURCES_NAME_HK = f"{file_name}.sources.hk"
 LOAD_MONITORS_NAME_HK = f"{file_name}.monitors.hk"
 ZOOM_DESC_TOG = f"Enable/Disable Mouse Zoom ({file_name})"
 FOLLOW_DESC_TOG = f"Enable/Disable Mouse Follow ({file_name})"
-LOAD_SOURCES_DESC_HK = f"Load Sources ({file_name})"
-LOAD_MONITORS_DESC_HK = f"Load Monitors ({file_name})"
 USE_MANUAL_MONITOR_SIZE = "Manual Monitor Size"
 CROP_FILTER_NAME = f"ZoomCrop_{file_name}"
 
@@ -38,7 +36,7 @@ For more information please visit:
 https://github.com/tryptech/obs-zoom-and-follow
 """
 
-description = (f"""Crops and resizes a source to simulate a zoomed in tracked to the mouse.=n
+description = (f"""Crops and resizes a source to simulate a zoomed in tracked to the mouse.\n
 Set activation hotkey in Settings.\n
 Active Border enables lazy/smooth tracking; border size calculated as percent of smallest dimension. Border of 50% keeps mouse locked in the center of the zoom frame.\n
 Manual Monitor Dimensions constrain the zoom to just the area in the defined size; useful for restricting zooming to a small area in large format monitors.\n
@@ -47,13 +45,17 @@ By tryptech
 {version}""")
 
 def get_cursor_position():
-    return pwc.getMousePos()
+    # macOS flips Y coordinate
+    return pmc._pymonctl_macos._getMousePos(darwin) if darwin else pmc.getMousePos()
 
-def log(s):
+def log(*args):
     global debug
     if debug:
-        print(s)
-
+        string = ''
+        for arg in args:
+            string += str(arg)
+            if (len(args) > 1): string += " "
+        print(string)
 
 # -------------------------------------------------------------------
 class ZoomSettings:
@@ -65,23 +67,23 @@ class ZoomSettings:
 
     def __init__(self, cwd, settings_dir, settings_file_name):
         log("Run ZoomSettings init")
-        self.file_dir = os.path.join(cwd,settings_dir)
+        self.file_dir = path.join(cwd,settings_dir)
         self.file_name = settings_file_name
-        self.file_path = os.path.join(self.file_dir,self.file_name)
+        self.file_path = path.join(self.file_dir,self.file_name)
 
         if settings_dir:
-            log(f"Checking settings directory: {os.path.join(cwd,settings_dir)}")
-            if not os.path.exists(self.file_dir):
+            log(f"Checking settings directory: {path.join(cwd,settings_dir)}")
+            if not path.exists(self.file_dir):
                 log("Settings directory does not exist")
                 log("Creating settings directory")
-                os.makedirs(self.file_dir)
+                makedirs(self.file_dir)
             log("Settings directory found")
 
     def save(self, settings, *args, **kwargs):
         log(f"Saving to {self.file_path}")
         try:
             f = open(self.file_path,
-                     "w" if os.path.exists(self.file_path)
+                     "w" if path.exists(self.file_path)
                      else "a")
             output = json.loads(obs.obs_data_get_json(settings))
             if kwargs:
@@ -107,7 +109,7 @@ class ZoomSettings:
     def load(self):
         log("Loading settings")
         try:
-            if not os.path.exists(self.file_path):
+            if not path.exists(self.file_path):
                 self.create()
             f = open(self.file_path)
             d = json.load(f)
@@ -145,8 +147,11 @@ class CaptureSources:
         self.monitor = monitor
         self.applesilicon = applesilicon
 
+    def mac_sources(self):
+        return self.monitor.all_sources() | self.applesilicon.sources
+
     def all_sources(self):
-        return self.window.sources | self.monitor.all_sources() | self.applesilicon.sources
+        return self.window.sources | self.mac_sources()
 
 
 # Matches against values returned by obs.obs_source_get_id(source).
@@ -177,18 +182,19 @@ class CursorWindow:
     monitor                 |   
     monitor_override        |   
     monitor_override_id     |   
+    monitor_scale           |
     monitor_size_override   |   
-    monitors                |   Cached list of monitor objects as reported by PyWinCtl
-    monitors_key            |   Cached list of monitors as reported by PyWinCtl
+    monitors_dict           |   Cached list of monitor objects as reported by PyMonCtl
+    monitors_key            |   Cached list of monitors as reported by PyMonCtl
     refresh_rate            |   OBS frame rate
     smooth                  |   Smoothing factor for CaptureWindow movement (0.0 - 1.0)
     source_load             |   
     source_name             |   Name of source to be modified
     source_type             |   Type of source to be modified
-    source_w_raw            |   Source width as reported by PyWinCtl
-    source_h_raw            |   Source height as reported by PyWinCtl
-    source_x_raw            |   Source x position as reported by PyWinCtl
-    source_y_raw            |   Source y position as reported by PyWinCtl 
+    source_w_raw            |   Source width as reported by PyWinCtl/PyMonCtl
+    source_h_raw            |   Source height as reported by PyWinCtl/PyMonCtl
+    source_x_raw            |   Source x position as reported by PyWinCtl/PyMonCtl
+    source_y_raw            |   Source y position as reported by PyWinCtl/PyMonCtl
     source_w_override       |   Custom source width
     source_h_override       |   Custom source height
     source_x_offset         |   Custom source x offset relative to source_x_raw
@@ -214,16 +220,22 @@ class CursorWindow:
     """
     log("Create CursorWindow")
 
+    # log("pwc attributes")
+    # for attr in dir(pwc):
+    #     log(f"pwc.{attr}: {getattr(pwc, attr)}")
+
     lock = False
     track = True
     update = True
     ticking = False
     zi_timer = zo_timer = 0
     windows = monitor = window = window_handle = window_name = ''
-    monitors = pwc.getAllScreens()
-    monitors_key = list(dict.keys(monitors))
+    monitors_dict = pmc.getAllMonitorsDict()
+    monitors_list = pmc._pymonctl_macos._NSgetAllMonitorsDict()
+    monitors_key = list(dict.keys(monitors_dict))
     monitor_override = manual_offset = monitor_size_override = False
     monitor_override_id = ''
+    monitor_scale = None
     zoom_x = zoom_y = 0
     zoom_x_target = zoom_y_target = 0
     source_w_raw = source_h_raw = source_x_raw = source_y_raw = 0
@@ -244,10 +256,13 @@ class CursorWindow:
         """
         Update the list of Windows and Monitors from PyWinCtl
         """
-        if not (sys == "Darwin") or not settings_update:
-            self.windows = pwc.getAllWindows()
-            self.monitors = pwc.getAllScreens()
-            self.monitors_key = list(dict.keys(self.monitors))
+        global darwin
+        if not darwin or not settings_update:
+            if (not darwin):
+                self.windows = pwc.getAllWindows()
+            # self.monitors_list = pmc.getAllMonitors()
+            self.monitors_dict = pmc.getAllMonitorsDict()
+            self.monitors_key = list(dict.keys(self.monitors_dict))
 
     def update_window_dim(self, window):
         """
@@ -286,9 +301,13 @@ class CursorWindow:
         """
         Update the stored dimensions based on the selected monitor
 
-        :param monitor: Single monitor as returned from the PyWinCtl
-            Monitor function getAllScreens()
+        :param monitor: Single monitor as returned from the PyMonCtl
+            Monitor function getAllMonitorsDict()
+
+        TODO: Determine scale in macOS
         """
+        global darwin
+
         log(
             f"Updating stored dimensions to match monitor's dimensions | {monitor}")
         if (self.source_w_raw != monitor['size'].width
@@ -299,6 +318,8 @@ class CursorWindow:
             log("Width, Height, X, Y")
             log(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw}, \
                 {self.source_y_raw}")
+            if darwin:
+                log(f"Scale: {self.monitor_scale}")
             self.source_w_raw = monitor['size'].width
             self.source_h_raw = monitor['size'].height
             self.source_x_raw = monitor['position'].x
@@ -307,6 +328,8 @@ class CursorWindow:
             log("Width, Height, X, Y")
             log(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw}, \
                 {self.source_y_raw}")
+            if darwin:
+                log(f"Scale: {self.monitor_scale}")
         else:
             log("Dimensions did not change")
 
@@ -378,13 +401,13 @@ class CursorWindow:
         Else search for the monitor and update
         """
         monitor_id = data.get('monitor', None)
-        if len(self.monitors.items()) == 1:
+        if len(self.monitors_dict.items()) == 1:
             log("Only one monitor detected. Forcing override.")
-            for monitor in self.monitors.items():
+            for monitor in self.monitors_dict.items():
                 self.update_monitor_dim(monitor[1])
         elif self.monitor_override is True:
             log(f"Monitor Override: {self.monitor_override}")
-            for monitor in self.monitors.items():
+            for monitor in self.monitors_dict.items():
                 if monitor[0] == self.monitors_key[
                         self.monitor_override_id]:
                     self.update_monitor_dim(monitor[1])
@@ -392,7 +415,7 @@ class CursorWindow:
             log(f"Key 'monitor' does not exist in {data}")
         else:
             log(f"Searching for monitor {monitor_id}")
-            for monitor in self.monitors.items():
+            for monitor in self.monitors_dict.items():
                 if (monitor[1]['id'] == monitor_id):
                     log(f"Found monitor {monitor[1]['id']} | {monitor}")
                     self.update_monitor_dim(monitor[1])
@@ -408,6 +431,12 @@ class CursorWindow:
 
         self.window_name = data.get('window_name')
         # TODO: implement
+        # Maybe when there's a non-laggy way to capture windows.
+        # 
+        # According to PyWinCtl:
+        # macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use:
+        #   To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() Object reference).
+        #   To control other applications' windows: MacOSWindow() is based on Apple Script, so it is non-standard, slower and, in some cases, tricky (uses window name as reference, which may change or be duplicate), but it's working fine in most cases. You will likely need to grant permissions on Settings -> Security&Privacy -> Accessibility. Notice some applications will have limited Apple Script support or no support at all, so some or even all methods may fail!       
 
     def screen_capture_mac(self, data):
         """
@@ -419,16 +448,32 @@ class CursorWindow:
             WINDOW = 1
             APPLICATION = 2
         
-        Use is expected to be for DISPLAY or WINDOW
+        Use is expected to be for DISPLAY
         """
         log("Apple Silicon")
+        log(f"data: {data}")
         screen_capture_type = data.get('type')
-        if (screen_capture_type == 0):
+
+        # When a new screen capture is created and then called in one session,
+        # the obs source object does not populate any attributes
+        # This auto check will fail on some versions of macOS (tested on 13.5.1)
+        # Instead, all monitor related dimensions must be manually overridden
+
+
+        if screen_capture_type and (screen_capture_type == 0):
             monitor_id = data.get('display')
-            for monitor in self.monitors.items():
+            for monitor in self.monitors_dict.items():
                 if (monitor[1]['id'] == monitor_id):
                     log(f"Found monitor {monitor[1]['id']} | {monitor[0]}")
                     self.update_monitor_dim(monitor[1])
+        elif len(self.monitors_dict) == 1:
+            log("Only one monitor cached")
+            for monitor in self.monitors_key:
+                self.update_monitor_dim(self.monitors_dict[monitor])
+        elif self.monitor_override:
+            log("Monitor override")
+        else:
+            log("Monitor override required for macOS")
 
     def monitor_capture_mac(self, data):
         """
@@ -440,7 +485,7 @@ class CursorWindow:
         """
         monitor_index = data.get('display', 0)
         log(f"Retrieving monitor {monitor_index}")
-        for monitor in self.monitors.items():
+        for monitor in self.monitors_dict.items():
             if (monitor['id'] == monitor_index):
                 log(f"Found monitor {monitor['id']} | {monitor}")
                 self.update_monitor_dim(monitor)
@@ -467,7 +512,9 @@ class CursorWindow:
         """
         Adjusts the source size variables based on the source given
         """
+        global darwin
         global new_source
+        log("Update source size")
 
         try:
             # Try to pull the data for the source object
@@ -476,7 +523,8 @@ class CursorWindow:
             # Info is stored in a JSON format
             source = obs.obs_get_source_by_name(self.source_name)
             source_settings = obs.obs_source_get_settings(source)
-            data = json.loads(obs.obs_data_get_json(source_settings))
+            data = obs.obs_data_get_json(source_settings)
+            data_json = json.loads(data)
         except:
             # If it cannot be pulled, it is likely one of the following:
             #   The source no longer exists
@@ -496,20 +544,22 @@ class CursorWindow:
             log(f"Source Type: {self.source_type}")
             if (self.source_type in SOURCES.window.sources):
                 window_match = ''
-                if 'window_name' in data:
-                    self.window_capture_mac(data)
-                elif 'window' in data:
-                    window_match = self.window_capture_gen(data)
+                #if 'window_name' in data_json:
+                if darwin:
+                    log("No macOS window capture due to performance issues")
+                    # self.window_capture_mac(data)
+                elif 'window' in data_json:
+                    window_match = self.window_capture_gen(data_json)
                 if window_match is not None:
                     log("Proceeding to resize")
                     self.window = pwc.getWindowsWithTitle(self.window_name)[0]
                     self.update_window_dim(self.window)
             elif (self.source_type in SOURCES.monitor.windows | SOURCES.monitor.linux):
-                self.monitor_capture_gen(data)
+                self.monitor_capture_gen(data_json)
             elif (self.source_type in SOURCES.applesilicon.sources):
-                self.screen_capture_mac(data)
+                self.screen_capture_mac(data_json)
             elif (self.source_type in SOURCES.monitor.macos):
-                self.monitor_capture_mac(data)
+                self.monitor_capture_mac(data_json)
 
             self.update_computed_source_values()
 
@@ -552,16 +602,13 @@ class CursorWindow:
         """
         track = False
 
-        # Don't follow cursor when it is outside the source in both dimensions
-        if (mousePos.x > (self.source_x + self.source_w)
-            or mousePos.x < self.source_x) \
-                and (mousePos.y > (self.source_y + self.source_h)
-                     or mousePos.y < self.source_y):
-            return False
+        mouseX, mouseY = mousePos
 
-        # When the mouse goes to the left edge or top edge of a Mac display, the cursor is set to 0,0
-        # This attempts to ignore the mouse coordinates are set to that value on Mac only.
-        if sys == 'Darwin' and (mousePos[0] == 0 or mousePos[1] == 0):
+        # Don't follow cursor when it is outside the source in both dimensions
+        if (mouseX > (self.source_x + self.source_w)
+            or mouseX < self.source_x) \
+                and (mouseY > (self.source_y + self.source_h)
+                     or mouseY < self.source_y):
             return False
 
         # Get active zone edges relative to the source
@@ -582,8 +629,8 @@ class CursorWindow:
                 self.zoom_y_target + int(self.zoom_h * 0.5)
 
         # Cursor relative to the source, because the crop values are relative
-        source_mouse_x = mousePos.x - self.source_x_raw
-        source_mouse_y = mousePos.y - self.source_y_raw
+        source_mouse_x = mouseX - self.source_x_raw
+        source_mouse_y = mouseY - self.source_y_raw
 
         if source_mouse_x < zoom_edge_left:
             self.zoom_x_target += source_mouse_x - zoom_edge_left
@@ -648,9 +695,16 @@ class CursorWindow:
         current location, so there's no visible travel from where the previous
         known location was when zooming in again.
         """
-        mousePos = get_cursor_position()
-        self.zoom_x_target = mousePos.x - self.zoom_w * 0.5
-        self.zoom_y_target = mousePos.y - self.zoom_h * 0.5
+        global darwin
+
+        mouseX, mouseY = get_cursor_position()
+        
+        if darwin:
+            mouseX
+            mouseY
+
+        self.zoom_x_target = mouseX - self.zoom_w * 0.5
+        self.zoom_y_target = mouseY - self.zoom_h * 0.5
         # Clamp to a valid location inside the source limits
         self.check_pos()
 
@@ -799,6 +853,7 @@ def populate_list_property_with_source_names(list_property):
 
     Checks a source against SOURCES to determine availability.
     """
+    global darwin
     global new_source
 
     log("Updating Source List")
@@ -808,12 +863,13 @@ def populate_list_property_with_source_names(list_property):
         obs.obs_property_list_clear(list_property)
         obs.obs_property_list_add_string(list_property, "", "")
         for source in sources:
-            if sys == "Darwin":
-                log(f"{obs.obs_source_get_name(source)} | {source}")
+            source_type = obs.obs_source_get_id(source)
+            if darwin and source_type not in SOURCES.all_sources():
+                log(f"{obs.obs_source_get_name(source)} | {source_type} | {source}")
             # Print this value if a source isn't showing in the UI as expected
             # and add it to SOURCES above for either window or monitor capture.
-            source_type = obs.obs_source_get_id(source)
-            if source_type in SOURCES.all_sources():
+            filter = SOURCES.all_sources() if not darwin else SOURCES.mac_sources()
+            if source_type in filter:
                 name_val = name = obs.obs_source_get_name(source)
                 name = name + "||" + source_type
                 obs.obs_property_list_add_string(list_property, name_val, name)
@@ -825,12 +881,12 @@ def populate_list_property_with_source_names(list_property):
 
 def populate_list_property_with_monitors(list_property):
     log("Updating Monitor List")
-    if zoom.monitors is not None:
+    if zoom.monitors_dict is not None:
         obs.obs_property_list_clear(list_property)
         obs.obs_property_list_add_int(list_property, "", -1)
         monitor_index = 0
-        for monitor in zoom.monitors:
-            screen_size = pwc.getScreenSize(monitor)
+        for monitor in zoom.monitors_key:
+            screen_size = zoom.monitors_dict.get(monitor, None)['size'] if darwin else pmc.getSize(monitor)
             obs.obs_property_list_add_int(list_property,
                                           f"{monitor}: {screen_size.width} x {screen_size.height}",
                                           monitor_index)
@@ -931,9 +987,9 @@ def script_update(settings):
 
 
 def callback(props, prop, *args):
-    log("Triggered callback")
-
     prop_name = obs.obs_property_name(prop)
+
+    log(f"Triggered callback: {prop_name}")
     
     monitor = obs.obs_properties_get(props, "monitor")
     monitor_override = obs.obs_properties_get(props, "Manual Monitor Override")
@@ -944,21 +1000,24 @@ def callback(props, prop, *args):
     global debug
     debug = obs.obs_properties_get(props, "debug")
     
-    if prop_name == "source":
-        if sys != 'Darwin':
+    match(prop_name):
+        case "source":
             populate_list_property_with_source_names(prop)
-        if source_type in SOURCES.monitor.all_sources():
-            obs.obs_property_set_visible(monitor_override, True)
-            obs.obs_property_set_visible(refresh_monitor, True)
-            obs.obs_property_set_visible(monitor_size_override, True)
-            zoom.update_source_size()
-        else:
-            obs.obs_property_set_visible(monitor_override, False)
-            obs.obs_property_set_visible(refresh_monitor, False)
-            obs.obs_property_set_visible(monitor_size_override, False)
-
-    if prop_name == "Refresh monitors":
-        populate_list_property_with_monitors(prop)
+            if source_type in SOURCES.monitor.all_sources():
+                obs.obs_property_set_visible(monitor_override, True)
+                obs.obs_property_set_visible(refresh_monitor, True)
+                obs.obs_property_set_visible(monitor_size_override, True)
+                zoom.update_source_size()
+            else:
+                obs.obs_property_set_visible(monitor_override, False)
+                obs.obs_property_set_visible(refresh_monitor, False)
+                obs.obs_property_set_visible(monitor_size_override, False)
+        case "Refresh monitors":
+            populate_list_property_with_monitors(prop)
+        case "Toggle zoom":
+            toggle_zoom(True)
+        case "Toggle follow":
+            toggle_follow(True)
 
     obs.obs_property_set_visible(
         obs.obs_properties_get(props, "Monitor Width"),
@@ -1046,6 +1105,16 @@ def script_properties():
                                         "Smooth", "Smooth", 0, 10, 0.1)
     obs.obs_properties_add_int_slider(props,
                                       "Zoom", "Zoom Duration (ms)", 0, 1000, 1)
+    
+    tz = obs.obs_properties_add_button(props,
+                                       "Test zoom",
+                                       "Toggle zoom test",
+                                       lambda props, prop: True if callback(props, sources) else True)
+    
+    tf = obs.obs_properties_add_button(props,
+                                       "Test follow",
+                                       "Toggle zoom follow",
+                                       lambda props, prop: True if callback(props, sources) else True)
 
     debug_tog = obs.obs_properties_add_bool(props,
                                            "debug",
@@ -1112,23 +1181,6 @@ def script_load(settings):
     obs.obs_hotkey_load(follow_id_tog, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
 
-    if sys == 'Darwin':
-        global load_sources_hk
-        load_sources_hk = obs.obs_hotkey_register_frontend(
-            LOAD_SOURCES_NAME_HK, LOAD_SOURCES_DESC_HK, press_load_sources
-        )
-        hotkey_save_array = obs.obs_data_get_array(settings, LOAD_SOURCES_NAME_HK)
-        obs.obs_hotkey_load(load_sources_hk, hotkey_save_array)
-        obs.obs_data_array_release(hotkey_save_array)
-        
-        global load_monitors_hk
-        load_monitors_hk = obs.obs_hotkey_register_frontend(
-            LOAD_MONITORS_NAME_HK, LOAD_MONITORS_DESC_HK, press_load_monitors
-        )
-        hotkey_save_array = obs.obs_data_get_array(settings, LOAD_MONITORS_NAME_HK)
-        obs.obs_hotkey_load(load_monitors_hk, hotkey_save_array)
-        obs.obs_data_array_release(hotkey_save_array)
-
     log(f"Loaded settings: {settings_updated}")
     
 
@@ -1143,9 +1195,6 @@ def script_unload():
 
     obs.obs_hotkey_unregister(toggle_zoom)
     obs.obs_hotkey_unregister(toggle_follow)
-    if sys == 'Darwin':
-        obs.obs_hotkey_unregister(press_load_sources)
-        obs.obs_hotkey_unregister(press_load_monitors)
 
 
 def script_save(settings):
@@ -1193,17 +1242,3 @@ def toggle_follow(pressed):
             if zoom.lock:
                 zoom.tick_enable()
         log(f"Tracking: {zoom.track}")
-
-
-def press_load_sources(pressed):
-    if pressed:
-        global props
-        source_list = obs.obs_properties_get(props, "source")
-        populate_list_property_with_source_names(source_list)
-    
-
-def press_load_monitors(pressed):
-    if pressed:
-        global props
-        monitor_list = obs.obs_properties_get(props, "monitor")
-        populate_list_property_with_monitors(monitor_list)
