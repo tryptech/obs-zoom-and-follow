@@ -88,7 +88,7 @@ class ZoomSettings:
             output = json.loads(obs.obs_data_get_json(settings))
             if kwargs:
                 for key, value in kwargs.items():              
-                    skipped_values = ["windows", "monitors"]
+                    skipped_values = ["windows", "monitors", "monitors_list"]
                     new_keys = [i for i in dir(value)
                                 if not i.startswith("_")
                                 and i not in skipped_values
