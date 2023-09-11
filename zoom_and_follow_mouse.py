@@ -1204,6 +1204,10 @@ def script_save(settings):
     obs.obs_data_set_array(settings, ZOOM_NAME_TOG, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
 
+    hotkey_save_array = obs.obs_hotkey_save(follow_id_tog)
+    obs.obs_data_set_array(settings, FOLLOW_NAME_TOG, hotkey_save_array)
+    obs.obs_data_array_release(hotkey_save_array)
+
 
 # -------------------------------------------------------------------
 def toggle_zoom(pressed):
