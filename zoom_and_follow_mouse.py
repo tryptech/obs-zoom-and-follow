@@ -459,21 +459,18 @@ class CursorWindow:
         # This auto check will fail on some versions of macOS (tested on 13.5.1)
         # Instead, all monitor related dimensions must be manually overridden
 
-
-        if screen_capture_type and (screen_capture_type == 0):
-            monitor_id = data.get('display')
-            for monitor in self.monitors_dict.items():
-                if (monitor[1]['id'] == monitor_id):
-                    log(f"Found monitor {monitor[1]['id']} | {monitor[0]}")
-                    self.update_monitor_dim(monitor[1])
-        elif len(self.monitors_dict) == 1:
+        if len(self.monitors_dict) == 1:
             log("Only one monitor cached")
             for monitor in self.monitors_key:
                 self.update_monitor_dim(self.monitors_dict[monitor])
         elif self.monitor_override:
             log("Monitor override")
         else:
-            log("Monitor override required for macOS")
+            monitor_id = data.get('display')
+            for monitor in self.monitors_dict.items():
+                if (monitor[1]['id'] == monitor_id):
+                    log(f"Found monitor {monitor[1]['id']} | {monitor[0]}")
+                    self.update_monitor_dim(monitor[1])
 
     def monitor_capture_mac(self, data):
         """
@@ -987,6 +984,8 @@ def script_update(settings):
 
 
 def callback(props, prop, *args):
+    global darwin
+
     prop_name = obs.obs_property_name(prop)
 
     log(f"Triggered callback: {prop_name}")
@@ -1003,7 +1002,7 @@ def callback(props, prop, *args):
     match(prop_name):
         case "source":
             populate_list_property_with_source_names(prop)
-            if source_type in SOURCES.monitor.all_sources():
+            if source_type in SOURCES.monitor.all_sources() or darwin:
                 obs.obs_property_set_visible(monitor_override, True)
                 obs.obs_property_set_visible(refresh_monitor, True)
                 obs.obs_property_set_visible(monitor_size_override, True)
