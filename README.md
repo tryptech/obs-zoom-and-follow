@@ -23,11 +23,11 @@ Install
 
 - Install requirements
 
-  ```python pip install -r requirements.txt```
+  ```python -m pip install -r requirements.txt```
 
   or
 
-  ```python3 pip install -r requirements.txt```
+  ```python3 -m pip install -r requirements.txt```
 
 - Add `zoom_and_follow_mouse.py` as an OBS script
 
