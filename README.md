@@ -13,6 +13,7 @@ Have you ever needed to zoom in on your screen to show some fine detail work, or
 Dependencies
 ------------
 - [PyWinCtl](https://github.com/Kalmat/PyWinCtl/) by [Kalmat](https://github.com/Kalmat)
+- [PyMonCtl](https://github.com/Kalmat/PyMonCtl/) by [Kalmat](https://github.com/Kalmat)
 
 Install
 -------
