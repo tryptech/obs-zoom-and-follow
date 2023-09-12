@@ -8,7 +8,7 @@ Have you ever needed to zoom in on your screen to show some fine detail work, or
 
 *Inspired by [caharkness](https://obsproject.com/forum/members/caharkness.153928/)'s [Magic Window](https://obsproject.com/forum/threads/magic-window.107614/)*
 
-*Last updated: 2023 April 16*
+*Last updated: 2023 September 12*
 
 Dependencies
 ------------
@@ -20,13 +20,17 @@ Install
 
   Make sure that you configure the correct version of Python within OBS in the "Scripts" window > "Python Settings" tab
 
-- Install [PyWinCtl](https://github.com/Kalmat/PyWinCtl#install)
+- Install requirements
 
-  Be sure to install to the Python version that OBS is using.
+  ```python pip install -r requirements.txt```
+
+  or
+
+  ```python3 pip install -r requirements.txt```
 
 - Add `zoom_and_follow_mouse.py` as an OBS script
 
-*Note: I will not provide support on how to install Python or any dependencies as each system and platform is different and I am only set up to test on the current versions of Windows 11 and macOS.*
+*Note: I will not provide support on how to install Python or any dependencies as each system and platform is different. I am only set up to test on the current versions of Windows 11 and Apple Silicon-based macOS and can only guarantee compatibility with the latest version of OBS on the latest version of each OS.*
 
 How to Use
 ----------
@@ -51,4 +55,4 @@ To Do
 -----
 - Automatically setup transform bounding box
 - Only track windows/games when they are the active window
-- Further reduce CPU Usage in non-Windows systems
+- Re-implement window tracking on macOS
