@@ -43,7 +43,7 @@ How to Use
    - Setup a hotkey for ***Enable/Disable Mouse Zoom***
    - Setup a hotkey for ***Enable/Disable Mouse Follow***
 3. Use ***Zoom*** hotkey to zoom in and out of the source
-  - Optionally, use the ***Follow*** hotkey to toggle mouse tracking
+   - Optionally, use the ***Follow*** hotkey to toggle mouse tracking
 4. Adjust Source Bounding Box Type, Alignment, and Size to preference
 
 Setting up zoom control for multiple sources
