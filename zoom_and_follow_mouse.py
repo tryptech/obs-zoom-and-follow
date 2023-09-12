@@ -673,7 +673,7 @@ class CursorWindow:
         # if keeping cursor in center of zoom window
         if (not self.update) or use_lazy_tracking:
             speed_squared = (offset_x * offset_x) + (offset_y * offset_y)
-            if speed_squared > (self.max_speed * self.max_speed):
+            if speed_squared * self.monitor_scale > (self.max_speed * self.max_speed):
                 # Only spend CPU on sqrt if we really need it
                 speed_factor = self.max_speed / sqrt(speed_squared)
                 offset_x *= speed_factor
