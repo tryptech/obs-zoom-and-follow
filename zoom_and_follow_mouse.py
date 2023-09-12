@@ -114,8 +114,9 @@ class ZoomSettings:
             if not path.exists(self.file_path):
                 self.create()
             f = open(self.file_path)
+            if f:
+                log(f"Settings file found:",self.file_path)
             d = json.load(f)
-            f.close()
             return d
         except Exception as e:
             log(f"{e}: Cannot load settings from file")
@@ -1152,9 +1153,10 @@ def script_load(settings):
                     for value in settings_import[setting]:
                         setattr(zoom, value, settings_import[setting][value])
                         settings_updated.append(f"zoom.{value}")
+                    continue
                 case _:
                     if setting not in dir(zoom):
-                        break
+                        continue
                     elif setting == "source":
                         if settings_import[setting].index("||"):
                             value = settings_import[setting].split("||")[0]
