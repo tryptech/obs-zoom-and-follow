@@ -305,8 +305,6 @@ class CursorWindow:
 
         :param monitor: Single monitor as returned from the PyMonCtl
             Monitor function getAllMonitorsDict()
-
-        TODO: Determine scale in macOS
         """
         global darwin
 
@@ -625,18 +623,18 @@ class CursorWindow:
         use_lazy_tracking = self.active_border < 0.5
         if use_lazy_tracking:
             # Find border size in pixels from shortest dimension (usually height)
-            border_size = int(min(self.zoom_w, self.zoom_h) * self.active_border)
+            border_size = int(min(self.zoom_w, self.zoom_h) * self.active_border) * self.monitor_scale
             zoom_edge_left = self.zoom_x_target + border_size
-            zoom_edge_right = self.zoom_x_target + self.zoom_w - border_size
+            zoom_edge_right = self.zoom_x_target + (self.zoom_w * self.monitor_scale) - border_size
             zoom_edge_top = self.zoom_y_target + border_size
-            zoom_edge_bottom = self.zoom_y_target + self.zoom_h - border_size
+            zoom_edge_bottom = self.zoom_y_target + (self.zoom_h * self.monitor_scale) - border_size
         else:
             # Active zone edges are at the center of the zoom window to keep
             # the cursor there at all times
             zoom_edge_left = zoom_edge_right = \
-                self.zoom_x_target + int(self.zoom_w * 0.5)
+                self.zoom_x_target + int((self.zoom_w * self.monitor_scale) * 0.5)
             zoom_edge_top = zoom_edge_bottom = \
-                self.zoom_y_target + int(self.zoom_h * 0.5)
+                self.zoom_y_target + int((self.zoom_h * self.monitor_scale) * 0.5)
 
         # Cursor relative to the source, because the crop values are relative
         source_mouse_x = mouseX - self.source_x_raw
@@ -659,7 +657,7 @@ class CursorWindow:
 
         # Only constrain zoom window to source when not centering mouse cursor
         if use_lazy_tracking:
-            self.check_pos()
+           self.check_pos()
 
         # log(f"Fix: {self.zoom_x_target} {self.zoom_y_target}")
 
@@ -716,8 +714,8 @@ class CursorWindow:
 
         mouseX, mouseY = get_cursor_position()
 
-        self.zoom_x_target = mouseX - self.zoom_w * 0.5
-        self.zoom_y_target = mouseY - self.zoom_h * 0.5
+        self.zoom_x_target = (mouseX - self.zoom_w * 0.5)
+        self.zoom_y_target = (mouseY - self.zoom_h * 0.5)
         # Clamp to a valid location inside the source limits
         self.check_pos()
 
@@ -785,8 +783,8 @@ class CursorWindow:
                 time = self.cubic_in_out(self.zo_timer / totalFrames)
                 crop_left = int(((1 - time) * self.zoom_x))
                 crop_top = int(((1 - time) * self.zoom_y))
-                crop_width = self.zoom_w + int(time * (self.source_w_raw - self.zoom_w))
-                crop_height = self.zoom_h + int(time * (self.source_h_raw - self.zoom_h))
+                crop_width = (self.zoom_w * self.monitor_scale) + int(time * (self.source_w_raw - (self.zoom_w * self.monitor_scale)))
+                crop_height = (self.zoom_h * self.monitor_scale) + int(time * (self.source_h_raw - (self.zoom_h * self.monitor_scale)))
                 self.update = True
             else:
                 # Leave crop left and top as 0
@@ -802,14 +800,14 @@ class CursorWindow:
                 time = self.cubic_in_out(self.zi_timer / totalFrames)
                 crop_left = int(time * self.zoom_x)
                 crop_top = int(time * self.zoom_y)
-                crop_width = self.source_w_raw - int(time * (self.source_w_raw - self.zoom_w))
-                crop_height = self.source_h_raw - int(time * (self.source_h_raw - self.zoom_h))
+                crop_width = self.source_w_raw - int(time * (self.source_w_raw - (self.zoom_w * self.monitor_scale)))
+                crop_height = self.source_h_raw - int(time * (self.source_h_raw - (self.zoom_h * self.monitor_scale)))
                 self.update = True if time < 0.8 else False
             else:
                 crop_left = int(self.zoom_x)
                 crop_top = int(self.zoom_y)
-                crop_width = int(self.zoom_w)
-                crop_height = int(self.zoom_h)
+                crop_width = int(self.zoom_w * self.monitor_scale)
+                crop_height = int(self.zoom_h * self.monitor_scale)
                 self.update = False
 
         self.obs_set_crop_settings(crop_left, crop_top, crop_width, crop_height)
