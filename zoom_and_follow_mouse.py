@@ -7,7 +7,7 @@ import pywinctl as pwc
 import pymonctl as pmc
 import obspython as obs
 
-version = "v.2023.09.01"
+version = "v.2023.09.12"
 debug = False
 sys= system()
 darwin = (sys == "Darwin")
@@ -223,10 +223,6 @@ class CursorWindow:
     """
     log("Create CursorWindow")
 
-    # log("pwc attributes")
-    # for attr in dir(pwc):
-    #     log(f"pwc.{attr}: {getattr(pwc, attr)}")
-
     lock = False
     track = True
     update = True
@@ -234,11 +230,10 @@ class CursorWindow:
     zi_timer = zo_timer = 0
     windows = monitor = window = window_handle = window_name = ''
     monitors_dict = pmc.getAllMonitorsDict()
-    monitors_list = pmc._pymonctl_macos._NSgetAllMonitorsDict()
     monitors_key = list(dict.keys(monitors_dict))
     monitor_override = manual_offset = monitor_size_override = False
     monitor_override_id = ''
-    monitor_scale = None
+    monitor_scale = 1
     zoom_x = zoom_y = 0
     zoom_x_target = zoom_y_target = 0
     source_w_raw = source_h_raw = source_x_raw = source_y_raw = 0
@@ -263,7 +258,6 @@ class CursorWindow:
         if not darwin or not settings_update:
             if (not darwin):
                 self.windows = pwc.getAllWindows()
-            # self.monitors_list = pmc.getAllMonitors()
             self.monitors_dict = pmc.getAllMonitorsDict()
             self.monitors_key = list(dict.keys(self.monitors_dict))
 
@@ -310,7 +304,7 @@ class CursorWindow:
         global darwin
 
         log("Updating stored dimensions to match monitor's dimensions")
-        current_monitor_scale = monitor['dpi'][0]/72
+        current_monitor_scale = monitor['dpi'][0]/72 if darwin else 1
         if (self.source_w_raw != monitor['size'].width * current_monitor_scale
             or self.source_h_raw != monitor['size'].height * current_monitor_scale
             or self.source_x_raw != monitor['position'].x * current_monitor_scale
@@ -453,6 +447,8 @@ class CursorWindow:
             DISPLAY = 0
             WINDOW = 1
             APPLICATION = 2
+        data.type is only returned if data.type is not 0 or system has more
+        than one monitor connected
         
         Use is expected to be for DISPLAY
         """
