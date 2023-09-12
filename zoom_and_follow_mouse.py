@@ -1042,10 +1042,6 @@ def callback(props, prop, *args):
                 obs.obs_property_set_visible(monitor_size_override, False)
         case "Refresh monitors":
             populate_list_property_with_monitors(prop)
-        case "Toggle zoom":
-            toggle_zoom(True)
-        case "Toggle follow":
-            toggle_follow(True)
 
     obs.obs_property_set_visible(
         obs.obs_properties_get(props, "Monitor Width"),
