@@ -7,7 +7,7 @@ import pywinctl as pwc
 import pymonctl as pmc
 import obspython as obs
 
-version = "v.2023.09.12"
+version = "v.2023.09.12.1"
 debug = False
 sys= system()
 darwin = (sys == "Darwin")
@@ -206,6 +206,7 @@ class CursorWindow:
     source_h                |   Final computed source height
     source_x                |   Final computed source x position
     source_y                |   Final computed source y position
+    source_refs             |   Array of source names referenced from OBS
     window                  |   
     window_handle           |   
     window_name             |   
@@ -249,6 +250,13 @@ class CursorWindow:
     max_speed = 160
     smooth = 1.0
     zoom_time = 300
+
+    source_refs = []
+
+    def get_obs_source(self, source_name):
+        if source_name not in self.source_refs:
+            self.source_refs.append(source_name)
+        return obs.obs_get_source_by_name(source_name)
 
     def update_sources(self, settings_update = False):
         """
@@ -521,7 +529,7 @@ class CursorWindow:
             # window/game/display sources settings
             # Info is stored in a JSON format
             log("self.source_name:", self.source_name)
-            source = obs.obs_get_source_by_name(self.source_name)
+            source = self.get_obs_source(self.source_name)
             source_settings = obs.obs_source_get_settings(source)
             data = obs.obs_data_get_json(source_settings)
             data_json = json.loads(data)
@@ -533,7 +541,7 @@ class CursorWindow:
             #       the script on start
 
             log("Source '" + self.source_name + "' not found.")
-            log(obs.obs_get_source_by_name(self.source_name))
+            log(self.get_obs_source(self.source_name))
         else:
             # If the source data is pulled, it exists. Therefore other
             # information must also exists. Source Type is pulled to
@@ -720,7 +728,7 @@ class CursorWindow:
         :param width: crop filter new width in pixels
         :param height: crop filter new height in pixels
         """
-        source = obs.obs_get_source_by_name(self.source_name)
+        source = self.get_obs_source(self.source_name)
         crop = obs.obs_source_get_filter_by_name(source, CROP_FILTER_NAME)
 
         if crop is None:  # create filter
@@ -1184,11 +1192,13 @@ def script_load(settings):
 def script_unload():
     log("Run script_unload")
 
-    source = obs.obs_get_source_by_name(zoom.source_name)
+    source = zoom.get_obs_source(zoom.source_name)
     crop = obs.obs_source_get_filter_by_name(source, CROP_FILTER_NAME)
 
     if crop is not None:
         obs.obs_source_filter_remove(source, crop)
+
+    obs.source_list_release(zoom.source_refs)
 
     obs.obs_hotkey_unregister(toggle_zoom)
     obs.obs_hotkey_unregister(toggle_follow)
