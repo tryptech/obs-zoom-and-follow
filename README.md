@@ -42,12 +42,9 @@ How to Use
 2. In the "Settings > Hotkeys" Menu of OBS
    - Setup a hotkey for ***Enable/Disable Mouse Zoom***
    - Setup a hotkey for ***Enable/Disable Mouse Follow***
-3. In the "Edit Transform" menu for the source:
-  - Set the "Bounding Box Type" to ***Scale to inner bounds***
-  - Set the "Bounding Box Size" to the size you want on the canvas when zoomed out
-4. Use ***Zoom*** hotkey to zoom in and out of the source
+3. Use ***Zoom*** hotkey to zoom in and out of the source
   - Optionally, use the ***Follow*** hotkey to toggle mouse tracking
-5. Adjust Source Bounding Box Type, Alignment, and Size to preference
+4. Adjust Source Bounding Box Type, Alignment, and Size to preference
 
 Setting up zoom control for multiple sources
 ---

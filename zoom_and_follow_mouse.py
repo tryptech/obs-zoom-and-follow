@@ -7,7 +7,7 @@ import pywinctl as pwc
 import pymonctl as pmc
 import obspython as obs
 
-version = "v.2023.09.12.1"
+version = "v.2023.09.12.2"
 debug = False
 sys= system()
 darwin = (sys == "Darwin")
