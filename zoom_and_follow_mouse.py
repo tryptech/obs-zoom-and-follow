@@ -8,7 +8,7 @@ import pymonctl as pmc
 import obspython as obs
 
 version = "v.2023.09.01"
-debug = True
+debug = False
 sys= system()
 darwin = (sys == "Darwin")
 cwd = path.dirname(path.realpath(__file__))
@@ -609,13 +609,10 @@ class CursorWindow:
         mouseX *= self.monitor_scale
         mouseY *= self.monitor_scale
 
-        # log(self.source_x, mouseX, self.source_x + self.source_w)
-        # log(self.source_y, mouseY, self.source_y + self.source_h)
-
         # Don't follow cursor when it is outside the source in both dimensions
-        if (mouseX > (self.source_x + self.source_w)
+        if (mouseX > (self.source_x + (self.source_w * self.monitor_scale))
             or mouseX < self.source_x) \
-                and (mouseY > (self.source_y + self.source_h)
+                and (mouseY > (self.source_y + (self.source_h * self.monitor_scale))
                      or mouseY < self.source_y):
             return False
 
@@ -653,13 +650,9 @@ class CursorWindow:
         elif source_mouse_y > zoom_edge_bottom:
             self.zoom_y_target += source_mouse_y - zoom_edge_bottom
 
-        # log(f"Ori: {self.zoom_x_target} {self.zoom_y_target}")
-
         # Only constrain zoom window to source when not centering mouse cursor
         if use_lazy_tracking:
            self.check_pos()
-
-        # log(f"Fix: {self.zoom_x_target} {self.zoom_y_target}")
 
         # Set smoothing values
         smoothFactor = 1.0 if self.update else \
@@ -689,19 +682,13 @@ class CursorWindow:
         """
         Checks if zoom window exceeds window dimensions and clamps it if true
         """
-        x_min = self.source_x
-        x_max = self.source_w + self.source_x - self.zoom_w
-        y_min = self.source_y
-        y_max = self.source_h + self.source_y - self.zoom_h
+        x_min = 0
+        x_max = self.source_w - (self.zoom_w * self.monitor_scale)
+        y_min = 0
+        y_max = self.source_h - (self.zoom_h * self.monitor_scale)
 
-        if self.zoom_x_target < x_min:
-            self.zoom_x_target = x_min
-        elif self.zoom_x_target > x_max:
-            self.zoom_x_target = x_max
-        if self.zoom_y_target < y_min:
-            self.zoom_y_target = y_min
-        elif self.zoom_y_target > y_max:
-            self.zoom_y_target = y_max
+        self.zoom_x_target = max(x_min, min(self.zoom_x_target, x_max))
+        self.zoom_y_target = max(y_min, min(self.zoom_y_target, y_max))
 
     def center_on_cursor(self):
         """
@@ -849,7 +836,6 @@ class CursorWindow:
         Containing function that is run every frame
         """
         self.tracking()
-
 
 
 # -------------------------------------------------------------------
