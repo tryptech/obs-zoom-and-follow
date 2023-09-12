@@ -7,7 +7,7 @@ import pywinctl as pwc
 import pymonctl as pmc
 import obspython as obs
 
-version = "v.2023.09.12.2"
+version = "v.2023.09.12.2.1"
 debug = False
 sys= system()
 darwin = (sys == "Darwin")
@@ -1133,16 +1133,6 @@ def script_properties():
                                         "Smooth", "Smooth", 0, 10, 0.1)
     obs.obs_properties_add_int_slider(props,
                                       "Zoom", "Zoom Duration (ms)", 0, 1000, 1)
-    
-    tz = obs.obs_properties_add_button(props,
-                                       "Test zoom",
-                                       "Toggle zoom test",
-                                       lambda props, prop: True if callback(props, sources) else True)
-    
-    tf = obs.obs_properties_add_button(props,
-                                       "Test follow",
-                                       "Toggle zoom follow",
-                                       lambda props, prop: True if callback(props, sources) else True)
 
     debug_tog = obs.obs_properties_add_bool(props,
                                            "debug",
