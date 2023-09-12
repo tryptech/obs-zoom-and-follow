@@ -46,7 +46,9 @@ By tryptech
 
 def get_cursor_position():
     # macOS flips Y coordinate
-    return pmc._pymonctl_macos._getMousePos(darwin) if darwin else pmc.getMousePos()
+    # return pmc._pymonctl_macos._getMousePos(darwin) if darwin else pmc.getMousePos()
+
+    return pmc.getMousePos()
 
 def log(*args):
     global debug
@@ -308,30 +310,35 @@ class CursorWindow:
         """
         global darwin
 
-        log(
-            f"Updating stored dimensions to match monitor's dimensions | {monitor}")
-        if (self.source_w_raw != monitor['size'].width
-            or self.source_h_raw != monitor['size'].height
-            or self.source_x_raw != monitor['position'].x
-                or self.source_y_raw != monitor['position'].y):
+        log("Updating stored dimensions to match monitor's dimensions")
+        current_monitor_scale = monitor['dpi'][0]/72
+        if (self.source_w_raw != monitor['size'].width * current_monitor_scale
+            or self.source_h_raw != monitor['size'].height * current_monitor_scale
+            or self.source_x_raw != monitor['position'].x * current_monitor_scale
+            or self.source_y_raw != monitor['position'].y * current_monitor_scale
+            or (darwin and (self.monitor_scale != current_monitor_scale))):
             log("OLD")
             log("Width, Height, X, Y")
             log(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw}, \
-                {self.source_y_raw}")
-            if darwin:
-                log(f"Scale: {self.monitor_scale}")
-            self.source_w_raw = monitor['size'].width
-            self.source_h_raw = monitor['size'].height
-            self.source_x_raw = monitor['position'].x
-            self.source_y_raw = monitor['position'].y
+{self.source_y_raw}")
+            self.monitor_scale = current_monitor_scale if darwin else 1.0
+            log(f"Scale: {self.monitor_scale}")
+            self.source_w_raw = monitor['size'].width * current_monitor_scale
+            self.source_h_raw = monitor['size'].height * current_monitor_scale
+            self.source_x_raw = monitor['position'].x * current_monitor_scale
+            self.source_y_raw = monitor['position'].y * current_monitor_scale
             log("NEW")
             log("Width, Height, X, Y")
             log(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw}, \
-                {self.source_y_raw}")
+{self.source_y_raw}")
             if darwin:
                 log(f"Scale: {self.monitor_scale}")
         else:
             log("Dimensions did not change")
+            log(f"{self.source_w_raw}, {self.source_h_raw}, {self.source_x_raw}, \
+{self.source_y_raw}")
+            if darwin:
+                log(f"Scale: {self.monitor_scale}")
 
     def window_capture_gen(self, data):
         """
@@ -518,6 +525,7 @@ class CursorWindow:
             # OBS stores the monitor index/window target in the
             # window/game/display sources settings
             # Info is stored in a JSON format
+            log("self.source_name:", self.source_name)
             source = obs.obs_get_source_by_name(self.source_name)
             source_settings = obs.obs_source_get_settings(source)
             data = obs.obs_data_get_json(source_settings)
@@ -600,6 +608,11 @@ class CursorWindow:
         track = False
 
         mouseX, mouseY = mousePos
+        mouseX *= self.monitor_scale
+        mouseY *= self.monitor_scale
+
+        # log(self.source_x, mouseX, self.source_x + self.source_w)
+        # log(self.source_y, mouseY, self.source_y + self.source_h)
 
         # Don't follow cursor when it is outside the source in both dimensions
         if (mouseX > (self.source_x + self.source_w)
@@ -628,6 +641,9 @@ class CursorWindow:
         # Cursor relative to the source, because the crop values are relative
         source_mouse_x = mouseX - self.source_x_raw
         source_mouse_y = mouseY - self.source_y_raw
+        
+        if darwin:
+            source_mouse_y = (self.source_y_raw + self.source_h_raw) - mouseY
 
         if source_mouse_x < zoom_edge_left:
             self.zoom_x_target += source_mouse_x - zoom_edge_left
@@ -639,9 +655,13 @@ class CursorWindow:
         elif source_mouse_y > zoom_edge_bottom:
             self.zoom_y_target += source_mouse_y - zoom_edge_bottom
 
+        # log(f"Ori: {self.zoom_x_target} {self.zoom_y_target}")
+
         # Only constrain zoom window to source when not centering mouse cursor
         if use_lazy_tracking:
             self.check_pos()
+
+        # log(f"Fix: {self.zoom_x_target} {self.zoom_y_target}")
 
         # Set smoothing values
         smoothFactor = 1.0 if self.update else \
@@ -695,10 +715,6 @@ class CursorWindow:
         global darwin
 
         mouseX, mouseY = get_cursor_position()
-        
-        if darwin:
-            mouseX
-            mouseY
 
         self.zoom_x_target = mouseX - self.zoom_w * 0.5
         self.zoom_y_target = mouseY - self.zoom_h * 0.5
@@ -739,7 +755,7 @@ class CursorWindow:
         crop_settings = obs.obs_source_get_settings(crop)
 
         def set_crop_setting(name, value):
-            obs.obs_data_set_int(crop_settings, name, value)
+            obs.obs_data_set_int(crop_settings, name, int(value))
 
         set_crop_setting("left", left)
         set_crop_setting("top", top)
