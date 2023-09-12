@@ -758,6 +758,28 @@ class CursorWindow:
         obs.obs_source_release(source)
         obs.obs_source_release(crop)
 
+    def obs_set_initial_bounding_box_type(self):
+        """
+        Sets the bounding box type and size if not previously set
+        Defaults to "Scale to inner bounds" and canvas size
+        """
+        source = self.get_obs_source(self.source_name)
+        scene = obs.obs_scene_from_source(obs.obs_frontend_get_current_scene())
+        if scene and source:
+            sceneitems = [obs.obs_scene_sceneitem_from_source(scene,source)]
+            for sceneitem in sceneitems:
+                if obs.obs_sceneitem_get_bounds_type(sceneitem) == 0:
+                    obs.obs_sceneitem_set_bounds_type(sceneitem, 2)
+                    obs.obs_sceneitem_set_bounds_alignment(sceneitem, 0)
+                    video = obs.obs_video_info()
+                    obs.obs_get_video_info(video)
+                    bounds = obs.vec2()
+                    setattr(bounds, "x", getattr(video, "base_width"))
+                    setattr(bounds, "y", getattr(video, "base_height"))
+                    obs.obs_sceneitem_set_bounds(sceneitem,bounds)
+            obs.sceneitem_list_release(sceneitems)
+            obs.obs_scene_release(scene)
+
     def set_crop(self):
         """
         Compute rectangle of the zoom window, interpolating for zoom in and out
@@ -803,6 +825,8 @@ class CursorWindow:
                 self.update = False
 
         self.obs_set_crop_settings(crop_left, crop_top, crop_width, crop_height)
+        self.obs_set_initial_bounding_box_type()
+
 
         # Stop ticking when zoom out is complete or
         # when zoomed in and not following the cursor

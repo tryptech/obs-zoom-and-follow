@@ -45,8 +45,9 @@ How to Use
 3. In the "Edit Transform" menu for the source:
   - Set the "Bounding Box Type" to ***Scale to inner bounds***
   - Set the "Bounding Box Size" to the size you want on the canvas when zoomed out
-- Use ***Zoom*** hotkey to zoom in and out of the source
-- Optionally, use the ***Follow*** hotkey to toggle mouse tracking
+4. Use ***Zoom*** hotkey to zoom in and out of the source
+  - Optionally, use the ***Follow*** hotkey to toggle mouse tracking
+5. Adjust Source Bounding Box Type, Alignment, and Size to preference
 
 Setting up zoom control for multiple sources
 ---
@@ -54,6 +55,5 @@ Duplicate and rename `zoom_and_follow_mouse.py`, and repeat the **Install** and 
 
 To Do
 -----
-- Automatically setup transform bounding box
 - Only track windows/games when they are the active window
 - Re-implement window tracking on macOS
