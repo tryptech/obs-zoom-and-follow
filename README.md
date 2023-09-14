@@ -8,7 +8,7 @@ Have you ever needed to zoom in on your screen to show some fine detail work, or
 
 *Inspired by [caharkness](https://obsproject.com/forum/members/caharkness.153928/)'s [Magic Window](https://obsproject.com/forum/threads/magic-window.107614/)*
 
-*Last updated: 2023 September 12*
+*Last updated: 2023 September 14*
 
 Dependencies
 ------------
@@ -54,3 +54,4 @@ To Do
 -----
 - Only track windows/games when they are the active window
 - Re-implement window tracking on macOS
+- Proper testing on Linux (X11/Wayland/etc.) *Looking for Linux maintainers*

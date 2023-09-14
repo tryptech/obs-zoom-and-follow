@@ -7,7 +7,7 @@ import pywinctl as pwc
 import pymonctl as pmc
 import obspython as obs
 
-version = "v.2023.09.12.2.1"
+version = "v.2023.09.14"
 debug = False
 sys= system()
 darwin = (sys == "Darwin")
@@ -912,11 +912,13 @@ def populate_list_property_with_monitors(list_property):
         obs.obs_property_list_add_int(list_property, "", -1)
         monitor_index = 0
         for monitor in zoom.monitors_key:
-            screen_size = zoom.monitors_dict.get(monitor, None)['size'] if darwin else pmc.getSize(monitor)
-            obs.obs_property_list_add_int(list_property,
-                                          f"{monitor}: {screen_size.width} x {screen_size.height}",
-                                          monitor_index)
-            monitor_index += 1
+            monitor_obj = zoom.monitors_dict.get(monitor, None)
+            if monitor_obj:
+                screen_size = monitor_obj['size']
+                obs.obs_property_list_add_int(list_property,
+                                              f"{monitor}: {screen_size.width} x {screen_size.height}",
+                                              monitor_index)
+                monitor_index += 1
     log("Monitor override list updated")
 
 
