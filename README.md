@@ -1,3 +1,9 @@
+***This script is not being actively maintained. Please contact me if you want to take over maintenance.***
+
+I no longer stream regularly and do not find myself with the free time to do the necessary refactor to address existing issues. Please use [BlankSourceCode's lua script](https://github.com/BlankSourceCode/obs-zoom-to-mouse) to achieve similar functionality. It only supports desktop capture, but works cross-platform, has basic dual machine support, and does not require you to setup Python or any dependencies.
+
+---------------
+
 Zoom and Follow
 ---------------
 Have you ever needed to zoom in on your screen to show some fine detail work, or to make your large 4k/ultrawide monitor appear less daunting on stream? **Zoom and Follow** for OBS Studio does exactly that, zooms in on your mouse and follows it around. Configurable and low-impact, you can now do old school Camtasia zoom ***live***!
